@@ -17,11 +17,16 @@
     <PackageTags>serialisation;serialization;bufferwriter;source-generator;aot;zero-allocation</PackageTags>
     <Copyright>Copyright © Marcel Roozekrans</Copyright>
     <Description>Source-generated, AOT-compatible IBufferWriter serialisation for .NET</Description>
+    <PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
 
   <PropertyGroup Condition="$(MSBuildProjectName.Contains('.Tests')) Or $(MSBuildProjectName.Contains('.Benchmarks'))">
     <IsPackable>false</IsPackable>
   </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsPackable)' != 'false'">
+    <None Include="$(MSBuildThisFileDirectory)assets/icon.png" Pack="true" PackagePath="\" />
+  </ItemGroup>
 
   <ItemGroup Condition="'$(IsRoslynComponent)' != 'true'">
     <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
