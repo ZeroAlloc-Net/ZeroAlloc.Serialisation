@@ -14,7 +14,7 @@ internal static class SerializerEmitter
             "MessagePack" =>
                 "global::MessagePack.MessagePackSerializer.Serialize(writer, value);",
             "SystemTextJson" =>
-                "global::System.Text.Json.JsonSerializer.Serialize(new global::System.Text.Json.Utf8JsonWriter(writer), value);",
+                "{ using var _jw = new global::System.Text.Json.Utf8JsonWriter(writer); global::System.Text.Json.JsonSerializer.Serialize(_jw, value); }",
             _ => throw new System.InvalidOperationException($"Unknown format: {model.FormatName}"),
         };
 
@@ -23,7 +23,7 @@ internal static class SerializerEmitter
             "MemoryPack" =>
                 $"return global::MemoryPack.MemoryPackSerializer.Deserialize<{model.FullTypeName}>(buffer);",
             "MessagePack" =>
-                $"return global::MessagePack.MessagePackSerializer.Deserialize<{model.FullTypeName}>(new global::System.Buffers.ReadOnlySequence<byte>(buffer.ToArray()));",
+                $"// MessagePack 3.x has no Deserialize(ReadOnlySpan<byte>) overload — it requires ReadOnlySequence<byte>.\n    // Converting from ReadOnlySpan<byte> requires a buffer copy; this allocation is unavoidable with this API.\n    return global::MessagePack.MessagePackSerializer.Deserialize<{model.FullTypeName}>(new global::System.Buffers.ReadOnlySequence<byte>(buffer.ToArray()));",
             "SystemTextJson" =>
                 $"return global::System.Text.Json.JsonSerializer.Deserialize<{model.FullTypeName}>(buffer);",
             _ => throw new System.InvalidOperationException($"Unknown format: {model.FormatName}"),

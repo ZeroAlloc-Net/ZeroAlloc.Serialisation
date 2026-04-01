@@ -40,4 +40,11 @@ public class SystemTextJsonSerializerTests
         _serializer.Serialize(buffer, new JsonDto { Id = 1, Name = "x" });
         Assert.Contains((byte)'{', buffer.WrittenSpan.ToArray());
     }
+
+    [Fact]
+    public void Deserialize_EmptySpan_ReturnsDefault()
+    {
+        var result = _serializer.Deserialize(ReadOnlySpan<byte>.Empty);
+        Assert.Null(result);
+    }
 }

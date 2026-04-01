@@ -25,6 +25,8 @@ public class MessagePackSerializer<T> : ISerializer<T>
     public virtual T? Deserialize(ReadOnlySpan<byte> buffer)
     {
         if (buffer.IsEmpty) return default;
+        // MessagePack 3.x has no Deserialize(ReadOnlySpan<byte>) overload — it requires ReadOnlySequence<byte>.
+        // Converting from ReadOnlySpan<byte> requires a buffer copy; this allocation is unavoidable with this API.
         var sequence = new ReadOnlySequence<byte>(buffer.ToArray());
         return global::MessagePack.MessagePackSerializer.Deserialize<T>(sequence, _options);
     }

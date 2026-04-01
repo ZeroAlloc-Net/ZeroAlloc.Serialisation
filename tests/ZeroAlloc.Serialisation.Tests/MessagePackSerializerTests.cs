@@ -37,4 +37,11 @@ public class MessagePackSerializerTests
         _serializer.Serialize(buffer, new MsgPackDto { Id = 1, Name = "x" });
         Assert.True(buffer.WrittenCount > 0);
     }
+
+    [Fact]
+    public void Deserialize_EmptySpan_ReturnsDefault()
+    {
+        var result = _serializer.Deserialize(ReadOnlySpan<byte>.Empty);
+        Assert.Null(result);
+    }
 }
