@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <NoWarn>$(NoWarn);NU1608;MA0006;MA0048;MA0074</NoWarn>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.SourceGenerators.Testing.XUnit" />
+    <PackageReference Include="Basic.Reference.Assemblies.Net100" />
+    <ProjectReference Include="../../src/ZeroAlloc.Serialisation.Generator/ZeroAlloc.Serialisation.Generator.csproj" />
+    <ProjectReference Include="../../src/ZeroAlloc.Serialisation/ZeroAlloc.Serialisation.csproj" />
+  </ItemGroup>
+</Project>
