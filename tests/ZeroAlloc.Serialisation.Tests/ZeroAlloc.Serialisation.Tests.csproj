@@ -2,11 +2,18 @@
   <PropertyGroup>
     <TargetFrameworks>net10.0</TargetFrameworks>
     <NoWarn>$(NoWarn);MA0048</NoWarn>
+    <!-- Suppress RequiresDynamicCode in test project — test DTOs are concrete types -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="xunit" />
     <PackageReference Include="xunit.runner.visualstudio" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="MemoryPack" />
+    <PackageReference Include="MessagePack" />
     <ProjectReference Include="../../src/ZeroAlloc.Serialisation/ZeroAlloc.Serialisation.csproj" />
+    <ProjectReference Include="../../src/ZeroAlloc.Serialisation.MemoryPack/ZeroAlloc.Serialisation.MemoryPack.csproj" />
+    <ProjectReference Include="../../src/ZeroAlloc.Serialisation.MessagePack/ZeroAlloc.Serialisation.MessagePack.csproj" />
+    <ProjectReference Include="../../src/ZeroAlloc.Serialisation.SystemTextJson/ZeroAlloc.Serialisation.SystemTextJson.csproj" />
   </ItemGroup>
 </Project>
