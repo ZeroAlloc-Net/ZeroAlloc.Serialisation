@@ -3,3 +3,7 @@ obj/
 *.user
 .vs/
 BenchmarkDotNet.Artifacts/
+*.nupkg
+*.snupkg
+TestResults/
+node_modules/
