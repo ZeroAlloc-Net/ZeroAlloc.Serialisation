@@ -1,2 +1,12 @@
 <Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ZeroAlloc.Serialisation.Generator/ZeroAlloc.Serialisation.Generator.csproj" />
+    <Project Path="src/ZeroAlloc.Serialisation.MemoryPack/ZeroAlloc.Serialisation.MemoryPack.csproj" />
+    <Project Path="src/ZeroAlloc.Serialisation.MessagePack/ZeroAlloc.Serialisation.MessagePack.csproj" />
+    <Project Path="src/ZeroAlloc.Serialisation.SystemTextJson/ZeroAlloc.Serialisation.SystemTextJson.csproj" />
+    <Project Path="src/ZeroAlloc.Serialisation/ZeroAlloc.Serialisation.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ZeroAlloc.Serialisation.Tests/ZeroAlloc.Serialisation.Tests.csproj" />
+  </Folder>
 </Solution>
