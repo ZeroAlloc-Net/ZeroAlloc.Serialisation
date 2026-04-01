@@ -1,0 +1,32 @@
+<Project>
+  <PropertyGroup>
+    <TargetFrameworks>netstandard2.1;net8.0;net9.0;net10.0</TargetFrameworks>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Authors>Marcel Roozekrans</Authors>
+    <Company>ZeroAlloc</Company>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://serialisation.zeroalloc.net</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>serialisation;serialization;bufferwriter;source-generator;aot;zero-allocation</PackageTags>
+    <Copyright>Copyright © Marcel Roozekrans</Copyright>
+    <Description>Source-generated, AOT-compatible IBufferWriter serialisation for .NET</Description>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="$(MSBuildProjectName.Contains('.Tests')) Or $(MSBuildProjectName.Contains('.Benchmarks'))">
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(IsRoslynComponent)' != 'true'">
+    <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
+    <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
+    <PackageReference Include="ErrorProne.NET.CoreAnalyzers" PrivateAssets="all" />
+    <PackageReference Include="ErrorProne.NET.Structs" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

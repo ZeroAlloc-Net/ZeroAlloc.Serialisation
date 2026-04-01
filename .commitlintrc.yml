@@ -1,0 +1,14 @@
+extends:
+  - '@commitlint/config-conventional'
+rules:
+  scope-enum:
+    - 2
+    - always
+    - - core
+      - generator
+      - memorypack
+      - messagepack
+      - systemtextjson
+      - benchmarks
+      - ci
+      - deps
