@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
@@ -11,7 +10,7 @@ namespace ZeroAlloc.Serialisation.Generator.Tests;
 public class SerializerGeneratorTests
 {
     [Fact]
-    public async Task Generator_NoAttribute_EmitsNothing()
+    public void Generator_NoAttribute_EmitsNothing()
     {
         var source = """
             namespace MyApp;
@@ -24,12 +23,10 @@ public class SerializerGeneratorTests
 
         var result = driver.GetRunResult();
         Assert.Empty(result.GeneratedTrees);
-
-        await Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Generator_MemoryPack_EmitsSerializerAndDiFiles()
+    public void Generator_MemoryPack_EmitsSerializerAndDiFiles()
     {
         var source = """
             using ZeroAlloc.Serialisation;
@@ -48,12 +45,10 @@ public class SerializerGeneratorTests
         Assert.Empty(result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
         Assert.Contains(result.GeneratedTrees, t => t.FilePath.Contains("OrderEventSerializer.g.cs"));
         Assert.Contains(result.GeneratedTrees, t => t.FilePath.Contains("OrderEventSerializerExtensions.g.cs"));
-
-        await Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Generator_EmittedSerializer_ContainsMemoryPackCall()
+    public void Generator_EmittedSerializer_ContainsMemoryPackCall()
     {
         var source = """
             using ZeroAlloc.Serialisation;
@@ -77,12 +72,10 @@ public class SerializerGeneratorTests
         Assert.Contains("MemoryPackSerializer.Serialize", text);
         Assert.Contains("MemoryPackSerializer.Deserialize<", text);
         Assert.Contains("ISerializer<MyApp.OrderEvent>", text);
-
-        await Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Generator_EmittedDiExtension_ContainsAddMethod()
+    public void Generator_EmittedDiExtension_ContainsAddMethod()
     {
         var source = """
             using ZeroAlloc.Serialisation;
@@ -105,12 +98,10 @@ public class SerializerGeneratorTests
         var text = diFile!.GetText().ToString();
         Assert.Contains("AddInvoiceEventSerializer", text);
         Assert.Contains("ISerializer<MyApp.InvoiceEvent>", text);
-
-        await Task.CompletedTask;
     }
 
     [Fact]
-    public async Task Generator_MessagePack_EmitsDeserializeWithSequenceConversion()
+    public void Generator_MessagePack_EmitsDeserializeWithSequenceConversion()
     {
         var source = """
             using ZeroAlloc.Serialisation;
@@ -133,8 +124,6 @@ public class SerializerGeneratorTests
         var text = serializerFile!.GetText().ToString();
         Assert.Contains("MessagePackSerializer.Serialize", text);
         Assert.Contains("MessagePackSerializer.Deserialize<", text);
-
-        await Task.CompletedTask;
     }
 
     private static CSharpCompilation CreateCompilation(string source)
