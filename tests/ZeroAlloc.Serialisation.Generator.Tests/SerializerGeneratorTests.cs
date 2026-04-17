@@ -153,6 +153,105 @@ public class SerializerGeneratorTests
         Assert.Contains("return services;", text);
     }
 
+    [Fact]
+    public void Generator_MultipleTypes_EmitsDispatcherFiles()
+    {
+        var source = """
+            using ZeroAlloc.Serialisation;
+
+            namespace MyApp;
+
+            [ZeroAllocSerializable(SerializationFormat.MemoryPack)]
+            public class OrderCreated { }
+
+            [ZeroAllocSerializable(SerializationFormat.MessagePack)]
+            public class OrderShipped { }
+            """;
+
+        var compilation = CreateCompilation(source);
+        var driver = CSharpGeneratorDriver.Create(new SerializerGenerator())
+            .RunGenerators(compilation);
+
+        var result = driver.GetRunResult();
+        Assert.Empty(result.Diagnostics.Where(d => d.Severity == DiagnosticSeverity.Error));
+        Assert.Contains(result.GeneratedTrees, t => t.FilePath.Contains("SerializerDispatcher.g.cs"));
+        Assert.Contains(result.GeneratedTrees, t => t.FilePath.Contains("SerializerDispatcherExtensions.g.cs"));
+    }
+
+    [Fact]
+    public void Generator_Dispatcher_ContainsAllRegisteredTypes()
+    {
+        var source = """
+            using ZeroAlloc.Serialisation;
+
+            namespace MyApp;
+
+            [ZeroAllocSerializable(SerializationFormat.MemoryPack)]
+            public class OrderCreated { }
+
+            [ZeroAllocSerializable(SerializationFormat.SystemTextJson)]
+            public class OrderShipped { }
+            """;
+
+        var compilation = CreateCompilation(source);
+        var driver = CSharpGeneratorDriver.Create(new SerializerGenerator())
+            .RunGenerators(compilation);
+
+        var result = driver.GetRunResult();
+        var dispatcherFile = result.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("SerializerDispatcher.g.cs"));
+
+        Assert.NotNull(dispatcherFile);
+        var text = dispatcherFile!.GetText().ToString();
+        Assert.Contains("OrderCreated", text);
+        Assert.Contains("OrderShipped", text);
+        Assert.Contains("ISerializerDispatcher", text);
+        Assert.Contains("SerializerDispatcher", text);
+    }
+
+    [Fact]
+    public void Generator_DispatcherDi_ContainsTryAddSingleton()
+    {
+        var source = """
+            using ZeroAlloc.Serialisation;
+
+            namespace MyApp;
+
+            [ZeroAllocSerializable(SerializationFormat.MemoryPack)]
+            public class DispatchEvent { }
+            """;
+
+        var compilation = CreateCompilation(source);
+        var driver = CSharpGeneratorDriver.Create(new SerializerGenerator())
+            .RunGenerators(compilation);
+
+        var result = driver.GetRunResult();
+        var diFile = result.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("SerializerDispatcherExtensions.g.cs"));
+
+        Assert.NotNull(diFile);
+        var text = diFile!.GetText().ToString();
+        Assert.Contains("AddSerializerDispatcher", text);
+        Assert.Contains("services.TryAddSingleton<", text);
+        Assert.Contains("return services;", text);
+    }
+
+    [Fact]
+    public void Generator_NoAnnotatedTypes_DoesNotEmitDispatcher()
+    {
+        var source = "namespace MyApp; public class PlainClass { }";
+
+        var compilation = CreateCompilation(source);
+        var driver = CSharpGeneratorDriver.Create(new SerializerGenerator())
+            .RunGenerators(compilation);
+
+        var result = driver.GetRunResult();
+        Assert.DoesNotContain(result.GeneratedTrees,
+            t => t.FilePath.Contains("SerializerDispatcher.g.cs"));
+        Assert.DoesNotContain(result.GeneratedTrees,
+            t => t.FilePath.Contains("SerializerDispatcherExtensions.g.cs"));
+    }
+
     private static CSharpCompilation CreateCompilation(string source)
     {
         var syntaxTree = CSharpSyntaxTree.ParseText(source);
