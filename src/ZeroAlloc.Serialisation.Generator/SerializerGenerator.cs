@@ -20,10 +20,18 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             .Where(static m => m is not null)
             .Select(static (m, _) => m!);
 
+        // Emit one serializer + DI extension per annotated type
         context.RegisterSourceOutput(types, static (ctx, model) =>
         {
             SerializerEmitter.Emit(ctx, model);
             DiEmitter.Emit(ctx, model);
+        });
+
+        // Emit one dispatcher covering ALL annotated types in the assembly
+        var allTypes = types.Collect();
+        context.RegisterSourceOutput(allTypes, static (ctx, models) =>
+        {
+            DispatcherEmitter.Emit(ctx, models);
         });
     }
 }
