@@ -126,6 +126,32 @@ public class SerializerGeneratorTests
         Assert.Contains("MessagePackSerializer.Deserialize<", text);
     }
 
+    [Fact]
+    public void Generator_EmittedDiExtension_UsesTryAddSingleton()
+    {
+        var source = """
+            using ZeroAlloc.Serialisation;
+
+            namespace MyApp;
+
+            [ZeroAllocSerializable(SerializationFormat.MemoryPack)]
+            public class OrderEvent { }
+            """;
+
+        var compilation = CreateCompilation(source);
+        var driver = CSharpGeneratorDriver.Create(new SerializerGenerator())
+            .RunGenerators(compilation);
+
+        var result = driver.GetRunResult();
+        var diFile = result.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.Contains("OrderEventSerializerExtensions.g.cs"));
+
+        Assert.NotNull(diFile);
+        var text = diFile!.GetText().ToString();
+        Assert.Contains("TryAddSingleton", text);
+        Assert.DoesNotContain("services.AddSingleton", text);
+    }
+
     private static CSharpCompilation CreateCompilation(string source)
     {
         var syntaxTree = CSharpSyntaxTree.ParseText(source);
