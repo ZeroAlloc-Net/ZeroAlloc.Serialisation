@@ -148,8 +148,9 @@ public class SerializerGeneratorTests
 
         Assert.NotNull(diFile);
         var text = diFile!.GetText().ToString();
-        Assert.Contains("TryAddSingleton", text);
+        Assert.Contains("services.TryAddSingleton<", text);
         Assert.DoesNotContain("services.AddSingleton", text);
+        Assert.Contains("return services;", text);
     }
 
     private static CSharpCompilation CreateCompilation(string source)
