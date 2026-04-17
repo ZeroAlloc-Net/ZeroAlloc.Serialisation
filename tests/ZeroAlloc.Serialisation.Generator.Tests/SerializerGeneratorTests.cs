@@ -207,6 +207,8 @@ public class SerializerGeneratorTests
         Assert.Contains("OrderShipped", text);
         Assert.Contains("ISerializerDispatcher", text);
         Assert.Contains("SerializerDispatcher", text);
+        Assert.Contains("OrderCreatedSerializer", text);
+        Assert.Contains("OrderShippedSerializer", text);
     }
 
     [Fact]
@@ -234,6 +236,7 @@ public class SerializerGeneratorTests
         Assert.Contains("AddSerializerDispatcher", text);
         Assert.Contains("services.TryAddSingleton<", text);
         Assert.Contains("return services;", text);
+        Assert.DoesNotContain("services.AddSingleton", text);
     }
 
     [Fact]
