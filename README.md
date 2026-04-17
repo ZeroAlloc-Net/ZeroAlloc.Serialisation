@@ -57,11 +57,34 @@ public class OrderEventStore(ISerializer<OrderCreated> serializer)
 }
 ```
 
+## Runtime Dispatch
+
+When you need to serialize/deserialize by `Type` at runtime (e.g. in event sourcing infrastructure), use `ISerializerDispatcher`. The generator emits one `SerializerDispatcher` per assembly covering all annotated types:
+
+```csharp
+// Register the dispatcher alongside per-type serializers:
+services.AddOrderCreatedSerializer();
+services.AddOrderShippedSerializer();
+services.AddSerializerDispatcher();  // registers ISerializerDispatcher → SerializerDispatcher
+
+// Inject and use:
+public class EventStore(ISerializerDispatcher dispatcher)
+{
+    public ReadOnlyMemory<byte> Serialize(object @event)
+        => dispatcher.Serialize(@event, @event.GetType());
+
+    public object? Deserialize(ReadOnlyMemory<byte> data, Type eventType)
+        => dispatcher.Deserialize(data, eventType);
+}
+```
+
+The generated `SerializerDispatcher` uses a compile-time switch — no reflection, no dictionary lookup, AOT-safe.
+
 ## Packages
 
 | Package | Description | TFM |
 |---|---|---|
-| `ZeroAlloc.Serialisation` | `ISerializer<T>`, `ZeroAllocSerializableAttribute` | netstandard2.1, net8–10 |
+| `ZeroAlloc.Serialisation` | `ISerializer<T>`, `ISerializerDispatcher`, `ZeroAllocSerializableAttribute` | netstandard2.1, net8–10 |
 | `ZeroAlloc.Serialisation.Generator` | Roslyn source generator | netstandard2.0 |
 | `ZeroAlloc.Serialisation.MemoryPack` | MemoryPack backend | net8–10 |
 | `ZeroAlloc.Serialisation.MessagePack` | MessagePack backend | net8–10 |

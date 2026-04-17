@@ -1,25 +1,11 @@
 using System.Buffers;
-using System.Text.Json.Serialization;
 using BenchmarkDotNet.Attributes;
-using MemoryPack;
-using MessagePack;
 using ZeroAlloc.Serialisation;
 using ZeroAlloc.Serialisation.MemoryPack;
 using ZeroAlloc.Serialisation.MessagePack;
 using ZeroAlloc.Serialisation.SystemTextJson;
 
 namespace ZeroAlloc.Serialisation.Benchmarks;
-
-[MemoryPackable]
-[MessagePackObject]
-public partial class BenchDto
-{
-    [Key(0)] public int Id { get; set; }
-    [Key(1)] public string Name { get; set; } = "";
-}
-
-[JsonSerializable(typeof(BenchDto))]
-internal partial class BenchContext : JsonSerializerContext { }
 
 [MemoryDiagnoser]
 [SimpleJob]

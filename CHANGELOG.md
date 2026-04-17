@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- `ISerializerDispatcher` — new interface for runtime-type dispatch: `Serialize(object, Type)` and `Deserialize(ReadOnlyMemory<byte>, Type)`. Allocation-tolerant by design; intended for use by infrastructure packages like `ZeroAlloc.EventSourcing`.
+- Source generator now emits `SerializerDispatcher.g.cs` per assembly — a `public sealed partial class SerializerDispatcher : ISerializerDispatcher` with a compile-time switch over all `[ZeroAllocSerializable]` types. Zero reflection, AOT-safe.
+- Source generator now emits `SerializerDispatcherExtensions.g.cs` per assembly — adds `AddSerializerDispatcher()` to the generated `SerializerServiceCollectionExtensions` partial class.
+
+### Fixed
+
+- Generated per-type DI extensions now use `TryAddSingleton` instead of `AddSingleton`. User-provided registrations are no longer silently overwritten.
+
 ## [1.1.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v1.0.0...v1.1.0) (2026-04-01)
 
 
@@ -29,14 +41,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **build:** exclude netstandard2.1 from adapter projects incompatible with it ([f5bb003](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/f5bb003114538c562d80eb0e55436acf24b7361e))
 * **core:** address code review issues — Utf8JsonWriter flush, MessagePack alloc comment, test fixes ([d2a30c5](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/d2a30c5cabb137a2728b6c76dab906251f5aefc8))
 * **generator:** document internal class constraint, fix spurious async in tests ([6feaf36](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/6feaf3629b5feeda802470584cc8788af5810a21))
-
-## [Unreleased]
-
-### Added
-- `ISerializer<T>` interface with `IBufferWriter<byte>`-based `Serialize` and `ReadOnlySpan<byte>`-based `Deserialize`
-- `ZeroAllocSerializableAttribute` with `SerializationFormat` enum (MemoryPack, MessagePack, SystemTextJson)
-- Roslyn incremental source generator emitting AOT-safe `{TypeName}Serializer` per annotated type
-- DI registration extension methods generated per type
-- `MemoryPackSerializer<T>` base class (`ZeroAlloc.Serialisation.MemoryPack`)
-- `MessagePackSerializer<T>` base class (`ZeroAlloc.Serialisation.MessagePack`)
-- `SystemTextJsonSerializer<T>` base class with `JsonTypeInfo<T>` injection (`ZeroAlloc.Serialisation.SystemTextJson`)
