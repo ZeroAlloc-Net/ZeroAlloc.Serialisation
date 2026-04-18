@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v1.2.0...v1.3.0) (2026-04-18)
+
+
+### Features
+
+* add SystemTextJsonFallbackDispatcher ([6744ada](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/6744adada48e9511fd1811b18773f9ebd6dea6b3))
+* add WithSystemTextJsonFallback DI extension ([52aa9e9](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/52aa9e9ee9d38ec118abff85a5cdd4714c183431))
+
+
+### Bug Fixes
+
+* address quality review issues in SystemTextJsonFallbackDispatcher ([f4e4e93](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/f4e4e935ee97b0251bde0ca11324791713cc0ffc))
+* address quality review issues in WithSystemTextJsonFallback ([5e58a46](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/5e58a469723fa91d6aeab6904a89ce2be0bb727e))
+* exclude STJ fallback files from netstandard2.1 TFM ([e9e8c58](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/e9e8c58e9aa1773673e958f9ce1ed28688a541b7))
+
 ## [1.2.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v1.1.0...v1.2.0) (2026-04-17)
 
 
