@@ -1,3 +1,4 @@
+using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 using Xunit;
 using ZeroAlloc.Serialisation;
@@ -143,5 +144,76 @@ public sealed class SystemTextJsonFallbackDispatcherTests
     {
         public ReadOnlyMemory<byte> Serialize(object value, Type type) => throw ex;
         public object?              Deserialize(ReadOnlyMemory<byte> data, Type type) => throw ex;
+    }
+}
+
+public sealed class WithSystemTextJsonFallbackTests
+{
+    private sealed record Ping(string Message);
+
+    // Simulates the generated SerializerDispatcher: only knows nothing, always throws.
+    private sealed class StubDispatcher : ISerializerDispatcher
+    {
+        public ReadOnlyMemory<byte> Serialize(object value, Type type)
+            => throw new NotSupportedException();
+        public object? Deserialize(ReadOnlyMemory<byte> data, Type type)
+            => throw new NotSupportedException();
+    }
+
+    [Fact]
+    public void WithSystemTextJsonFallback_ThrowsWhenNoDispatcherRegistered()
+    {
+        var services = new ServiceCollection();
+
+        Assert.Throws<InvalidOperationException>(() =>
+            services.WithSystemTextJsonFallback());
+    }
+
+    [Fact]
+    public void WithSystemTextJsonFallback_WrapsRegisteredDispatcher()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<ISerializerDispatcher, StubDispatcher>();
+        services.WithSystemTextJsonFallback();
+
+        var provider   = services.BuildServiceProvider();
+        var dispatcher = provider.GetRequiredService<ISerializerDispatcher>();
+
+        Assert.IsType<SystemTextJsonFallbackDispatcher>(dispatcher);
+    }
+
+    [Fact]
+    public void WithSystemTextJsonFallback_FallbackWorksEndToEnd()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<ISerializerDispatcher, StubDispatcher>();
+        services.WithSystemTextJsonFallback();
+
+        var provider   = services.BuildServiceProvider();
+        var dispatcher = provider.GetRequiredService<ISerializerDispatcher>();
+
+        var bytes  = dispatcher.Serialize(new Ping("hi"), typeof(Ping));
+        var result = dispatcher.Deserialize(bytes, typeof(Ping));
+
+        var ping = Assert.IsType<Ping>(result);
+        Assert.Equal("hi", ping.Message);
+    }
+
+    [Fact]
+    public void WithSystemTextJsonFallback_PassesOptionsThrough()
+    {
+        var options  = new JsonSerializerOptions
+            { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        var services = new ServiceCollection();
+        services.AddSingleton<ISerializerDispatcher, StubDispatcher>();
+        services.WithSystemTextJsonFallback(options);
+
+        var provider   = services.BuildServiceProvider();
+        var dispatcher = provider.GetRequiredService<ISerializerDispatcher>();
+
+        var bytes = dispatcher.Serialize(new Ping("camel"), typeof(Ping));
+        var json  = System.Text.Encoding.UTF8.GetString(bytes.Span);
+
+        Assert.Contains("\"message\"", json); // camelCase applied
     }
 }
