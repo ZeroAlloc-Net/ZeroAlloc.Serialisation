@@ -10,8 +10,9 @@ namespace ZeroAlloc.Serialisation;
 /// <remarks>
 /// <para>
 /// <strong>Opt-in only.</strong> Register via
-/// <see cref="SerializerDispatcherFallbackExtensions.WithSystemTextJsonFallback"/> after
-/// calling <c>AddSerializerDispatcher()</c>. When the fallback is not registered the inner
+/// <c>services.WithSystemTextJsonFallback()</c> (from
+/// <c>SerializerDispatcherFallbackExtensions</c>) after calling
+/// <c>AddSerializerDispatcher()</c>. When the fallback is not registered the inner
 /// dispatcher retains its strict behaviour and throws <see cref="NotSupportedException"/>
 /// for unregistered types — ensuring missing <c>[ZeroAllocSerializable]</c> annotations are
 /// caught early.
@@ -53,7 +54,9 @@ public sealed class SystemTextJsonFallbackDispatcher : ISerializerDispatcher
         }
         catch (NotSupportedException)
         {
+#pragma warning disable IL2026, IL3050
             return JsonSerializer.SerializeToUtf8Bytes(value, type, _options);
+#pragma warning restore IL2026, IL3050
         }
     }
 
@@ -66,7 +69,9 @@ public sealed class SystemTextJsonFallbackDispatcher : ISerializerDispatcher
         }
         catch (NotSupportedException)
         {
+#pragma warning disable IL2026, IL3050
             return JsonSerializer.Deserialize(data.Span, type, _options);
+#pragma warning restore IL2026, IL3050
         }
     }
 }
