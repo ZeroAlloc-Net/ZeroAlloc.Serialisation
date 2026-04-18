@@ -200,6 +200,32 @@ public sealed class WithSystemTextJsonFallbackTests
     }
 
     [Fact]
+    public void WithSystemTextJsonFallback_WrapsInstanceDescriptor()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<ISerializerDispatcher>(new StubDispatcher());
+        services.WithSystemTextJsonFallback();
+
+        var dispatcher = services.BuildServiceProvider()
+                                 .GetRequiredService<ISerializerDispatcher>();
+
+        Assert.IsType<SystemTextJsonFallbackDispatcher>(dispatcher);
+    }
+
+    [Fact]
+    public void WithSystemTextJsonFallback_WrapsFactoryDescriptor()
+    {
+        var services = new ServiceCollection();
+        services.AddSingleton<ISerializerDispatcher>(_ => new StubDispatcher());
+        services.WithSystemTextJsonFallback();
+
+        var dispatcher = services.BuildServiceProvider()
+                                 .GetRequiredService<ISerializerDispatcher>();
+
+        Assert.IsType<SystemTextJsonFallbackDispatcher>(dispatcher);
+    }
+
+    [Fact]
     public void WithSystemTextJsonFallback_PassesOptionsThrough()
     {
         var options  = new JsonSerializerOptions

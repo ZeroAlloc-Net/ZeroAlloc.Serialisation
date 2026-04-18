@@ -46,8 +46,13 @@ public static class SerializerDispatcherFallbackExtensions
             {
                 { ImplementationInstance: { } inst }    => (ISerializerDispatcher)inst,
                 { ImplementationFactory:  { } factory } => (ISerializerDispatcher)factory(sp),
-                _                                       => (ISerializerDispatcher)
-                    ActivatorUtilities.CreateInstance(sp, descriptor.ImplementationType!)
+                _ when descriptor.ImplementationType is null =>
+                    throw new InvalidOperationException(
+                        $"ServiceDescriptor for {nameof(ISerializerDispatcher)} has no " +
+                        "ImplementationType, ImplementationFactory, or ImplementationInstance. " +
+                        "Cannot construct the inner dispatcher."),
+                _ => (ISerializerDispatcher)
+                    ActivatorUtilities.CreateInstance(sp, descriptor.ImplementationType)
             };
             return new SystemTextJsonFallbackDispatcher(inner, options);
         });
