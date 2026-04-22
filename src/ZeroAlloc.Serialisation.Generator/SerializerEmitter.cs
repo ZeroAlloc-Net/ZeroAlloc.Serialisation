@@ -14,7 +14,7 @@ internal static class SerializerEmitter
             "MessagePack" =>
                 "global::MessagePack.MessagePackSerializer.Serialize(writer, value);",
             "SystemTextJson" =>
-                "{ using var _jw = new global::System.Text.Json.Utf8JsonWriter(writer); global::System.Text.Json.JsonSerializer.Serialize(_jw, value); }",
+                "using var _jw = new global::System.Text.Json.Utf8JsonWriter(writer);\n        global::System.Text.Json.JsonSerializer.Serialize(_jw, value);",
             _ => throw new System.InvalidOperationException($"Unknown format: {model.FormatName}"),
         };
 
@@ -46,7 +46,9 @@ internal static class SerializerEmitter
             {{ns}}internal sealed class {{model.TypeName}}Serializer : ISerializer<{{model.FullTypeName}}>
             {
                 public void Serialize(IBufferWriter<byte> writer, {{model.FullTypeName}} value)
-                    => {{serializerCall}}
+                {
+                    {{serializerCall}}
+                }
 
                 public {{model.FullTypeName}}? Deserialize(ReadOnlySpan<byte> buffer)
                 {
