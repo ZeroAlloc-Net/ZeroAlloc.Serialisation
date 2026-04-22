@@ -9,7 +9,7 @@ internal static class SerializerDiagnostics
     public static readonly DiagnosticDescriptor OpenGeneric = new(
         id: "ZASZ001",
         title: "[ZeroAllocSerializable] cannot be applied to an open generic type",
-        messageFormat: "[ZeroAllocSerializable] cannot be applied to open generic type '{0}'; use a closed concrete type.",
+        messageFormat: "[ZeroAllocSerializable] cannot be applied to open generic type '{0}'; use a closed concrete type",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
@@ -17,7 +17,7 @@ internal static class SerializerDiagnostics
     public static readonly DiagnosticDescriptor UnknownFormat = new(
         id: "ZASZ002",
         title: "Unknown SerializationFormat value",
-        messageFormat: "[ZeroAllocSerializable] value {0} is not a known SerializationFormat.",
+        messageFormat: "[ZeroAllocSerializable] value {0} is not a known SerializationFormat",
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
