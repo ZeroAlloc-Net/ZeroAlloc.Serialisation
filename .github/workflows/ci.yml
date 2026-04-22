@@ -75,10 +75,12 @@ jobs:
         run: dotnet restore samples/ZeroAlloc.Serialisation.AotSmoke/ZeroAlloc.Serialisation.AotSmoke.csproj
 
       - name: Publish AOT
+        # PublishAot is set inside the csproj so it does NOT propagate as a
+        # global MSBuild property into referenced projects (the ns2.1 core lib
+        # and ns2.0 generator) — otherwise NETSDK1207 would fire in their TFMs.
         run: |
           dotnet publish samples/ZeroAlloc.Serialisation.AotSmoke/ZeroAlloc.Serialisation.AotSmoke.csproj \
             -c Release \
-            -p:PublishAot=true \
             -o ./aot-out
 
       - name: Run AOT binary
