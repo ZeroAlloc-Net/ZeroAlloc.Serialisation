@@ -15,7 +15,8 @@ internal static class SerializerEmitter
                 "global::MessagePack.MessagePackSerializer.Serialize(writer, value);",
             "SystemTextJson" =>
                 "using var _jw = new global::System.Text.Json.Utf8JsonWriter(writer);\n        global::System.Text.Json.JsonSerializer.Serialize(_jw, value);",
-            _ => throw new System.InvalidOperationException($"Unknown format: {model.FormatName}"),
+            _ => throw new System.InvalidOperationException(
+                $"Unknown format '{model.FormatName}'; a ZASZ002 diagnostic should have suppressed emission. This indicates a generator bug."),
         };
 
         var deserializeCall = model.FormatName switch
@@ -26,7 +27,8 @@ internal static class SerializerEmitter
                 $"// MessagePack 3.x has no Deserialize(ReadOnlySpan<byte>) overload — it requires ReadOnlySequence<byte>.\n    // Converting from ReadOnlySpan<byte> requires a buffer copy; this allocation is unavoidable with this API.\n    return global::MessagePack.MessagePackSerializer.Deserialize<{model.FullTypeName}>(new global::System.Buffers.ReadOnlySequence<byte>(buffer.ToArray()));",
             "SystemTextJson" =>
                 $"return global::System.Text.Json.JsonSerializer.Deserialize<{model.FullTypeName}>(buffer);",
-            _ => throw new System.InvalidOperationException($"Unknown format: {model.FormatName}"),
+            _ => throw new System.InvalidOperationException(
+                $"Unknown format '{model.FormatName}'; a ZASZ002 diagnostic should have suppressed emission. This indicates a generator bug."),
         };
 
         var ns = string.IsNullOrEmpty(model.Namespace)
