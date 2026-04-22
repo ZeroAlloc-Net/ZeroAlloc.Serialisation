@@ -7,8 +7,23 @@ internal sealed record SerializerModel(
     string Namespace,
     string TypeName,
     string FullTypeName,
-    string FormatName  // "MemoryPack" | "MessagePack" | "SystemTextJson"
+    string FormatName,  // "MemoryPack" | "MessagePack" | "SystemTextJson"
+    StjContextBinding? StjContext = null
 );
+
+/// <summary>
+/// For SystemTextJson models: the fully-qualified <c>JsonSerializerContext</c>-derived type and
+/// the property name on its <c>Default</c> singleton that exposes <c>JsonTypeInfo&lt;T&gt;</c>.
+/// When non-null, the emitter uses <c>ContextFullName.Default.PropertyName</c> instead of the
+/// reflection-based overloads. Required for AOT safety; null for non-STJ formats.
+/// </summary>
+internal sealed record StjContextBinding(string ContextFullName, string PropertyName);
+
+/// <summary>
+/// Extracted from a <c>JsonSerializerContext</c>-derived class with one or more
+/// <c>[JsonSerializable(typeof(T))]</c> attributes. One entry per (context class, target type) pair.
+/// </summary>
+internal sealed record StjContextEntry(string TargetFullName, string ContextFullName, string PropertyName);
 
 /// <summary>
 /// Result of inspecting a <c>[ZeroAllocSerializable]</c> application.

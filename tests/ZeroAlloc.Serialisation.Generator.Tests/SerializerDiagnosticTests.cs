@@ -65,12 +65,47 @@ public sealed class SerializerDiagnosticTests
     {
         var source = """
             using ZeroAlloc.Serialisation;
+            using System.Text.Json.Serialization;
             namespace Demo;
             [ZeroAllocSerializable(SerializationFormat.SystemTextJson)]
             public sealed class Clean { public string V { get; set; } = ""; }
+            [JsonSerializable(typeof(Clean))]
+            internal partial class CleanContext : JsonSerializerContext { }
             """;
         var (_, diagnostics) = GeneratorTestHost.Generate(source);
         Assert.DoesNotContain(diagnostics, d => d.Id == "ZASZ003");
+    }
+
+    [Fact]
+    public void ZASZ004_SystemTextJsonWithoutContext_ProducesError()
+    {
+        var source = """
+            using ZeroAlloc.Serialisation;
+            namespace Demo;
+            [ZeroAllocSerializable(SerializationFormat.SystemTextJson)]
+            public sealed class Orphan { public string V { get; set; } = ""; }
+            """;
+        var (generated, diagnostics) = GeneratorTestHost.Generate(source);
+        Assert.Contains(diagnostics, d => d.Id == "ZASZ004" && d.Severity == DiagnosticSeverity.Error);
+        // Emission must be skipped when no binding is found — otherwise the user gets both
+        // a ZASZ004 error AND an unresolvable-identifier compile error on the generated file.
+        Assert.DoesNotContain("OrphanSerializer", generated, System.StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ZASZ004_SystemTextJsonWithContext_ProducesNoError()
+    {
+        var source = """
+            using ZeroAlloc.Serialisation;
+            using System.Text.Json.Serialization;
+            namespace Demo;
+            [ZeroAllocSerializable(SerializationFormat.SystemTextJson)]
+            public sealed class Bound { public string V { get; set; } = ""; }
+            [JsonSerializable(typeof(Bound))]
+            internal partial class BoundContext : JsonSerializerContext { }
+            """;
+        var (_, diagnostics) = GeneratorTestHost.Generate(source);
+        Assert.DoesNotContain(diagnostics, d => d.Id == "ZASZ004");
     }
 
     [Fact]

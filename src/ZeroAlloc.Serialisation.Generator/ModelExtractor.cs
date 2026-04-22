@@ -107,4 +107,103 @@ internal static class ModelExtractor
         }
         return false;
     }
+
+    private const string JsonSerializableAttr = "System.Text.Json.Serialization.JsonSerializableAttribute";
+    private const string JsonSerializerContextType = "System.Text.Json.Serialization.JsonSerializerContext";
+
+    /// <summary>
+    /// Scans a class carrying one or more <c>[JsonSerializable(typeof(T))]</c> attributes and,
+    /// if it derives from <c>JsonSerializerContext</c>, emits one <see cref="StjContextEntry"/>
+    /// per attribute application. The <see cref="StjContextEntry.PropertyName"/> matches STJ's
+    /// source-generator naming: the attribute's <c>TypeInfoPropertyName</c> named argument if
+    /// supplied, otherwise the target type's unqualified <c>Name</c>.
+    /// </summary>
+    public static ImmutableArray<StjContextEntry> ExtractContextEntries(
+        GeneratorAttributeSyntaxContext ctx,
+        CancellationToken ct)
+    {
+        if (ctx.TargetSymbol is not INamedTypeSymbol contextSymbol)
+            return ImmutableArray<StjContextEntry>.Empty;
+
+        if (!DerivesFromJsonSerializerContext(contextSymbol))
+            return ImmutableArray<StjContextEntry>.Empty;
+
+        var contextFullName = contextSymbol.ToDisplayString();
+        var builder = ImmutableArray.CreateBuilder<StjContextEntry>();
+        foreach (var attr in contextSymbol.GetAttributes())
+        {
+            ct.ThrowIfCancellationRequested();
+            if (attr.AttributeClass?.ToDisplayString() != JsonSerializableAttr) continue;
+            if (attr.ConstructorArguments.Length < 1) continue;
+            if (attr.ConstructorArguments[0].Value is not INamedTypeSymbol targetType) continue;
+
+            string? customName = null;
+            foreach (var named in attr.NamedArguments)
+            {
+                if (named.Key == "TypeInfoPropertyName" && named.Value.Value is string s)
+                {
+                    customName = s;
+                    break;
+                }
+            }
+
+            var propName = customName ?? targetType.Name;
+            builder.Add(new StjContextEntry(
+                TargetFullName: targetType.ToDisplayString(),
+                ContextFullName: contextFullName,
+                PropertyName: propName));
+        }
+        return builder.ToImmutable();
+    }
+
+    private static bool DerivesFromJsonSerializerContext(INamedTypeSymbol typeSymbol)
+    {
+        for (var cur = typeSymbol.BaseType; cur is not null; cur = cur.BaseType)
+        {
+            if (cur.ToDisplayString() == JsonSerializerContextType)
+                return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Joins a STJ extraction result with the flattened set of context entries in the compilation,
+    /// binding the model to its matching <c>JsonSerializerContext.Default.&lt;Prop&gt;</c> or adding
+    /// ZASZ004 when none is found. Non-STJ results pass through unchanged.
+    /// </summary>
+    public static SerializerExtractionResult JoinWithContextMap(
+        SerializerExtractionResult raw,
+        ImmutableArray<StjContextEntry> allEntries)
+    {
+        if (raw.Model is null) return raw;
+        if (raw.Model.FormatName != "SystemTextJson") return raw;
+
+        // Deterministic selection when multiple contexts register the same type:
+        // pick the one whose ContextFullName sorts first (ordinal). Users should avoid
+        // this but we shouldn't flap between builds when they don't.
+        StjContextEntry? match = null;
+        foreach (var entry in allEntries)
+        {
+            if (entry.TargetFullName != raw.Model.FullTypeName) continue;
+            if (match is null || string.CompareOrdinal(entry.ContextFullName, match.ContextFullName) < 0)
+            {
+                match = entry;
+            }
+        }
+
+        if (match is null)
+        {
+            var diag = raw.Diagnostics.Add(new DiagnosticInfo(
+                SerializerDiagnostics.MissingJsonSerializerContext,
+                Location: null,
+                new EquatableArray<string>(new[] { raw.Model.FullTypeName })));
+            return new SerializerExtractionResult(Model: null, Diagnostics: diag);
+        }
+
+        var boundModel = raw.Model with
+        {
+            StjContext = new StjContextBinding(match.ContextFullName, match.PropertyName),
+        };
+        return new SerializerExtractionResult(boundModel, raw.Diagnostics);
+    }
 }

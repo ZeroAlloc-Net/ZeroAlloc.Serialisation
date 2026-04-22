@@ -183,6 +183,7 @@ public class SerializerGeneratorTests
     {
         var source = """
             using ZeroAlloc.Serialisation;
+            using System.Text.Json.Serialization;
 
             namespace MyApp;
 
@@ -191,6 +192,9 @@ public class SerializerGeneratorTests
 
             [ZeroAllocSerializable(SerializationFormat.SystemTextJson)]
             public class OrderShipped { }
+
+            [JsonSerializable(typeof(OrderShipped))]
+            internal partial class OrderShippedContext : JsonSerializerContext { }
             """;
 
         var compilation = CreateCompilation(source);

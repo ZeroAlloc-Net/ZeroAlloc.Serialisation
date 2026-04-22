@@ -29,4 +29,12 @@ internal static class SerializerDiagnostics
         category: Category,
         defaultSeverity: DiagnosticSeverity.Warning,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor MissingJsonSerializerContext = new(
+        id: "ZASZ004",
+        title: "SystemTextJson type has no JsonSerializerContext binding",
+        messageFormat: "[ZeroAllocSerializable(SerializationFormat.SystemTextJson)] requires '{0}' to be registered via [JsonSerializable(typeof({0}))] on a JsonSerializerContext-derived class in the same compilation. Without one, the generated serializer cannot be AOT-safe and emission is skipped.",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true);
 }
