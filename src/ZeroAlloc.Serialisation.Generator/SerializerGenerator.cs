@@ -15,7 +15,7 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             .ForAttributeWithMetadataName(
                 AttributeFullName,
                 predicate: static (node, _) =>
-                    node is ClassDeclarationSyntax or StructDeclarationSyntax,
+                    node is TypeDeclarationSyntax,
                 transform: static (ctx, ct) => ModelExtractor.Extract(ctx, ct))
             .Where(static m => m is not null)
             .Select(static (m, _) => m!);
