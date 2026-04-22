@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v1.3.0...v2.0.0) (2026-04-22)
+
+
+### ⚠ BREAKING CHANGES
+
+* **generator:** STJ emission binds to JsonSerializerContext (AOT-safe) ([#17](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/17))
+
+### Features
+
+* **generator:** add ZASZ001-003 diagnostics for malformed serializable types ([#12](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/12)) ([f41c796](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/f41c79604dc05a980e226836cc64b4d01fe0cabe))
+* **generator:** STJ emission binds to JsonSerializerContext (AOT-safe) ([#17](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/17)) ([098bb17](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/098bb177b06e52d46899d0303ddd8d7a54f1bcd2))
+
+
+### Bug Fixes
+
+* **generator:** emit valid c# for systemtextjson body + support record types ([#9](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/9)) ([532b3c0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/532b3c0503b5202cc61188f7a2cf8840c3052c15))
+
 ## [1.3.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v1.2.0...v1.3.0) (2026-04-18)
 
 
