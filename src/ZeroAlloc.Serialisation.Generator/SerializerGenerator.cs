@@ -1,3 +1,5 @@
+using System.Collections.Immutable;
+using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 
@@ -9,9 +11,12 @@ public sealed class SerializerGenerator : IIncrementalGenerator
     private const string AttributeFullName =
         "ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute";
 
+    private const string JsonSerializableAttrFullName =
+        "System.Text.Json.Serialization.JsonSerializableAttribute";
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
-        var results = context.SyntaxProvider
+        var rawResults = context.SyntaxProvider
             .ForAttributeWithMetadataName(
                 AttributeFullName,
                 predicate: static (node, _) =>
@@ -19,6 +24,30 @@ public sealed class SerializerGenerator : IIncrementalGenerator
                 transform: static (ctx, ct) => ModelExtractor.Extract(ctx, ct))
             .Where(static r => r is not null)
             .Select(static (r, _) => r!);
+
+        // Separate pipeline: collect every [JsonSerializable(typeof(T))] on a
+        // JsonSerializerContext-derived class. Flattened to a single array so
+        // each raw result can look up its target type without quadratic scans.
+        var flattenedContextEntries = context.SyntaxProvider
+            .ForAttributeWithMetadataName(
+                JsonSerializableAttrFullName,
+                predicate: static (node, _) => node is ClassDeclarationSyntax,
+                transform: static (ctx, ct) => ModelExtractor.ExtractContextEntries(ctx, ct))
+            .Where(static entries => !entries.IsDefaultOrEmpty)
+            .Collect()
+            .Select(static (perClass, _) =>
+            {
+                var builder = ImmutableArray.CreateBuilder<Models.StjContextEntry>();
+                foreach (var arr in perClass)
+                {
+                    builder.AddRange(arr);
+                }
+                return builder.ToImmutable();
+            });
+
+        var results = rawResults
+            .Combine(flattenedContextEntries)
+            .Select(static (pair, _) => ModelExtractor.JoinWithContextMap(pair.Left, pair.Right));
 
         // Report diagnostics (errors + warnings) for every extraction result.
         context.RegisterSourceOutput(results, static (ctx, result) =>

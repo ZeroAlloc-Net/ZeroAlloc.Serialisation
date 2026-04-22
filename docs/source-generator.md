@@ -103,7 +103,11 @@ public static partial class SerializerServiceCollectionExtensions
 
 ## AOT Safety
 
-`T` is closed at generation time — `PersonEvent` is a compile-time constant, not a generic parameter. MemoryPack's own source generator has already emitted the `IMemoryPackable<PersonEvent>` implementation, so no dynamic code is required. The generator emits `[UnconditionalSuppressMessage("Trimming", "IL2026")]` and `[UnconditionalSuppressMessage("AOT", "IL3050")]` on the generated `Serialize`/`Deserialize` methods so the suppressions survive publish-time IL analysis (unlike `#pragma warning disable`, which is a C# compile-time directive only).
+`T` is closed at generation time — `PersonEvent` is a compile-time constant, not a generic parameter.
+
+For **MemoryPack / MessagePack**: the backend's own source generator has already emitted the `IMemoryPackable<PersonEvent>` / `IMessagePackFormatter<PersonEvent>` implementation, so no dynamic code is required at the call site. The generator emits `[UnconditionalSuppressMessage("Trimming", "IL2026")]` and `[UnconditionalSuppressMessage("AOT", "IL3050")]` on the generated methods so the suppressions survive publish-time IL analysis (unlike `#pragma warning disable`, which is a C# compile-time directive only).
+
+For **SystemTextJson**: the generator scans the compilation for any `JsonSerializerContext`-derived class carrying `[JsonSerializable(typeof(PersonEvent))]` and rewrites the emitted `Serialize`/`Deserialize` calls to route through `Context.Default.PersonEvent`. No reflection, no suppressions, no `JsonSerializerOptions.Default` fallback — the emission is first-class AOT-safe. If no matching context exists, the generator raises `ZASZ004` and skips emission.
 
 The `SerializerDispatcher` uses compile-time `typeof()` comparisons and pattern matching — no reflection on the `Type` parameter.
 

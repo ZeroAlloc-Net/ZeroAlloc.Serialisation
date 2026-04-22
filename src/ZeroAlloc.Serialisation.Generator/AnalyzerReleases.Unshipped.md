@@ -8,3 +8,4 @@ Rule ID | Category | Severity | Notes
 ZASZ001 | ZeroAlloc.Serialisation | Error   | [ZeroAllocSerializable] cannot be applied to an open generic type
 ZASZ002 | ZeroAlloc.Serialisation | Error   | Unknown SerializationFormat value
 ZASZ003 | ZeroAlloc.Serialisation | Warning | Missing per-format attribute (MemoryPackable / MessagePackObject)
+ZASZ004 | ZeroAlloc.Serialisation | Error   | SystemTextJson type has no matching [JsonSerializable] on a JsonSerializerContext

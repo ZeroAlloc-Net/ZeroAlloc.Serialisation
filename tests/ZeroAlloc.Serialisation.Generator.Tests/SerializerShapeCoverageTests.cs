@@ -16,12 +16,15 @@ public sealed class SerializerShapeCoverageTests
     {
         var source = """
             using ZeroAlloc.Serialisation;
+            using System.Text.Json.Serialization;
             namespace Demo;
             public class Outer
             {
                 [ZeroAllocSerializable(SerializationFormat.SystemTextJson)]
                 public sealed class Inner { public string Name { get; set; } = ""; }
             }
+            [JsonSerializable(typeof(Outer.Inner))]
+            internal partial class InnerContext : JsonSerializerContext { }
             """;
 
         var (generated, diagnostics) = Generate(source);
@@ -38,8 +41,11 @@ public sealed class SerializerShapeCoverageTests
     {
         var source = """
             using ZeroAlloc.Serialisation;
+            using System.Text.Json.Serialization;
             [ZeroAllocSerializable(SerializationFormat.SystemTextJson)]
             public sealed class Unnamespaced { public string V { get; set; } = ""; }
+            [JsonSerializable(typeof(Unnamespaced))]
+            internal partial class UnnamespacedContext : JsonSerializerContext { }
             """;
 
         var (generated, diagnostics) = Generate(source);
@@ -65,6 +71,12 @@ public sealed class SerializerShapeCoverageTests
             """
             namespace Demo;
             public partial class SplitPoco { public int B { get; set; } }
+            """,
+            """
+            using System.Text.Json.Serialization;
+            namespace Demo;
+            [JsonSerializable(typeof(SplitPoco))]
+            internal partial class SplitPocoContext : JsonSerializerContext { }
             """,
         };
 

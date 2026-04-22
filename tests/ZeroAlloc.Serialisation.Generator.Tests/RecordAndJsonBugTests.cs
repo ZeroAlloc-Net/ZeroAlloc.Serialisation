@@ -13,6 +13,7 @@ public sealed class RecordAndJsonBugTests
     {
         var source = """
             using ZeroAlloc.Serialisation;
+            using System.Text.Json.Serialization;
             namespace Demo;
             [ZeroAllocSerializable(SerializationFormat.SystemTextJson)]
             public sealed class WeatherResponse
@@ -20,6 +21,8 @@ public sealed class RecordAndJsonBugTests
                 public string City { get; set; } = "";
                 public double TemperatureC { get; set; }
             }
+            [JsonSerializable(typeof(WeatherResponse))]
+            internal partial class WeatherResponseContext : JsonSerializerContext { }
             """;
 
         var (generated, diagnostics) = Generate(source);
@@ -36,9 +39,12 @@ public sealed class RecordAndJsonBugTests
     {
         var source = """
             using ZeroAlloc.Serialisation;
+            using System.Text.Json.Serialization;
             namespace Demo;
             [ZeroAllocSerializable(SerializationFormat.SystemTextJson)]
             public sealed record class WeatherResponseRecord(string City, double TemperatureC);
+            [JsonSerializable(typeof(WeatherResponseRecord))]
+            internal partial class WeatherResponseRecordContext : JsonSerializerContext { }
             """;
 
         var (generated, _) = Generate(source);
@@ -51,9 +57,12 @@ public sealed class RecordAndJsonBugTests
     {
         var source = """
             using ZeroAlloc.Serialisation;
+            using System.Text.Json.Serialization;
             namespace Demo;
             [ZeroAllocSerializable(SerializationFormat.SystemTextJson)]
             public readonly record struct PointRecord(int X, int Y);
+            [JsonSerializable(typeof(PointRecord))]
+            internal partial class PointRecordContext : JsonSerializerContext { }
             """;
 
         var (generated, _) = Generate(source);
