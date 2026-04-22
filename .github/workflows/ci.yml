@@ -57,8 +57,10 @@ jobs:
     runs-on: ubuntu-latest
     # ubuntu-latest is fine for Native AOT on net10.0 — no cross-compile needed.
     # This job verifies that the generator-emitted code is actually AOT-safe under
-    # a real `dotnet publish -p:PublishAot=true`, not merely suppressed via
-    # `#pragma warning disable IL2026, IL3050` at emission time.
+    # a real `dotnet publish -p:PublishAot=true`. Publish-time IL analysis is
+    # distinct from C# compile-time analysis, so suppressions must be applied via
+    # [UnconditionalSuppressMessage] attributes on the emitted methods — not via
+    # `#pragma warning disable`, which is C#-only.
     steps:
       - name: Checkout
         uses: actions/checkout@v6
