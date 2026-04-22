@@ -14,13 +14,21 @@
     <OptimizationPreference>Size</OptimizationPreference>
   </PropertyGroup>
   <ItemGroup>
-    <!-- Pin TFMs on project references so PublishAot=true doesn't try to AOT the ns2.1/ns2.0 TFMs -->
+    <!--
+      Pin the core-lib reference to net10.0 AND strip PublishAot from the inherited
+      properties so the ns2.1 TFM evaluation (which it still does for nuget-asset
+      selection) doesn't trip NETSDK1207. Same for the generator: force ns2.0 and
+      drop PublishAot. The generator is consumed purely as an analyzer at build
+      time; its assembly is never part of the AOT-published output.
+    -->
     <ProjectReference Include="..\..\src\ZeroAlloc.Serialisation\ZeroAlloc.Serialisation.csproj"
-                      SetTargetFramework="TargetFramework=net10.0" />
+                      SetTargetFramework="TargetFramework=net10.0"
+                      UndefineProperties="PublishAot" />
     <ProjectReference Include="..\..\src\ZeroAlloc.Serialisation.Generator\ZeroAlloc.Serialisation.Generator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false"
-                      SetTargetFramework="TargetFramework=netstandard2.0" />
+                      SetTargetFramework="TargetFramework=netstandard2.0"
+                      UndefineProperties="PublishAot" />
     <PackageReference Include="MemoryPack" />
     <PackageReference Include="MessagePack" />
   </ItemGroup>
