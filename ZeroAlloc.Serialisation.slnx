@@ -11,4 +11,7 @@
     <Project Path="tests/ZeroAlloc.Serialisation.Generator.Tests/ZeroAlloc.Serialisation.Generator.Tests.csproj" />
     <Project Path="tests/ZeroAlloc.Serialisation.Tests/ZeroAlloc.Serialisation.Tests.csproj" />
   </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/ZeroAlloc.Serialisation.AotSmoke/ZeroAlloc.Serialisation.AotSmoke.csproj" />
+  </Folder>
 </Solution>

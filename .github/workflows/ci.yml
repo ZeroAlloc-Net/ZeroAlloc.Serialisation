@@ -52,3 +52,38 @@ jobs:
       - name: Push to NuGet (pre-release)
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: dotnet nuget push ./artifacts/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+  aot-smoke:
+    runs-on: ubuntu-latest
+    # ubuntu-latest is fine for Native AOT on net10.0 — no cross-compile needed.
+    # This job verifies that the generator-emitted code is actually AOT-safe under
+    # a real `dotnet publish -p:PublishAot=true`. Publish-time IL analysis is
+    # distinct from C# compile-time analysis, so suppressions must be applied via
+    # [UnconditionalSuppressMessage] attributes on the emitted methods — not via
+    # `#pragma warning disable`, which is C#-only.
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Install AOT native toolchain
+        run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
+
+      - name: Restore
+        run: dotnet restore samples/ZeroAlloc.Serialisation.AotSmoke/ZeroAlloc.Serialisation.AotSmoke.csproj
+
+      - name: Publish AOT
+        # PublishAot is set inside the csproj so it does NOT propagate as a
+        # global MSBuild property into referenced projects (the ns2.1 core lib
+        # and ns2.0 generator) — otherwise NETSDK1207 would fire in their TFMs.
+        run: |
+          dotnet publish samples/ZeroAlloc.Serialisation.AotSmoke/ZeroAlloc.Serialisation.AotSmoke.csproj \
+            -c Release \
+            -o ./aot-out
+
+      - name: Run AOT binary
+        run: ./aot-out/ZeroAlloc.Serialisation.AotSmoke

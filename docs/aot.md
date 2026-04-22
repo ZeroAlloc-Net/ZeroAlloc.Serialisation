@@ -5,7 +5,7 @@
 Generated `{TypeName}Serializer` classes are fully AOT-safe:
 
 - `T` is resolved at generation time — no open-generic reflection at runtime
-- `#pragma warning disable IL2026, IL3050` suppresses trim/AOT analyzer warnings on the static backend calls
+- `[UnconditionalSuppressMessage("Trimming", "IL2026")]` and `[UnconditionalSuppressMessage("AOT", "IL3050")]` are emitted on the generated `Serialize`/`Deserialize` methods. These attributes survive publish-time IL analysis (unlike `#pragma warning disable`, which is C# compile-time only).
 - The backend's own source generator (MemoryPack / MessagePack) has already emitted the necessary formatter, so the Serialize/Deserialize calls are safe to trim
 
 No `[RequiresDynamicCode]` or `[RequiresUnreferencedCode]` attributes appear on generated code.

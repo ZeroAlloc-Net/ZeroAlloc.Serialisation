@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Explicitly clear the multi-TFM list inherited from Directory.Build.props -->
+    <TargetFrameworks></TargetFrameworks>
+    <TargetFramework>net10.0</TargetFramework>
+    <IsPackable>false</IsPackable>
+    <PublishAot>true</PublishAot>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <!--
+      Override Directory.Build.props's blanket TreatWarningsAsErrors=true:
+      third-party dependencies (MemoryPack.Core, MessagePack) emit assembly-
+      level IL2104 / IL3053 roll-ups that we can't fix from inside this repo.
+      Instead, promote only the per-call trim/AOT warning codes to errors —
+      these are the ones the generator is responsible for suppressing.
+    -->
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL2067;IL2075;IL2091;IL3050;IL3051</WarningsAsErrors>
+    <!-- Keep the binary small so PublishAot smoke finishes quickly -->
+    <OptimizationPreference>Size</OptimizationPreference>
+  </PropertyGroup>
+  <ItemGroup>
+    <!--
+      Pin the core-lib reference to net10.0 AND strip PublishAot from the inherited
+      properties so the ns2.1 TFM evaluation (which it still does for nuget-asset
+      selection) doesn't trip NETSDK1207. Same for the generator: force ns2.0 and
+      drop PublishAot. The generator is consumed purely as an analyzer at build
+      time; its assembly is never part of the AOT-published output.
+    -->
+    <ProjectReference Include="..\..\src\ZeroAlloc.Serialisation\ZeroAlloc.Serialisation.csproj"
+                      SetTargetFramework="TargetFramework=net10.0"
+                      UndefineProperties="PublishAot" />
+    <ProjectReference Include="..\..\src\ZeroAlloc.Serialisation.Generator\ZeroAlloc.Serialisation.Generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false"
+                      SetTargetFramework="TargetFramework=netstandard2.0"
+                      UndefineProperties="PublishAot" />
+    <PackageReference Include="MemoryPack" />
+    <PackageReference Include="MessagePack" />
+  </ItemGroup>
+</Project>
