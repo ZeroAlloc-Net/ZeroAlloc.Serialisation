@@ -77,24 +77,6 @@ public sealed class SerializerShapeCoverageTests
         Assert.Single(serializerHints);
     }
 
-    // Current behaviour for open generics is undefined — the generator emits a
-    // serializer referencing the open type (e.g. Demo.Wrapper<T>), which is not
-    // valid runtime code. Skip the assertion until a dedicated diagnostic is added
-    // (see issue #8). Keeping the test (skipped) documents the edge case.
-    [Fact(Skip = "open generics: future diagnostic (issue #8)")]
-    public void GenericOpenType_EmitsDiagnosticOrSkipsEmission()
-    {
-        var source = """
-            using ZeroAlloc.Serialisation;
-            namespace Demo;
-            [ZeroAllocSerializable(SerializationFormat.SystemTextJson)]
-            public sealed class Wrapper<T> { public T? Value { get; set; } }
-            """;
-
-        var (_, diagnostics) = Generate(source);
-        Assert.DoesNotContain(diagnostics, static d => d.Severity == DiagnosticSeverity.Error);
-    }
-
     // ── helpers ──────────────────────────────────────────────────────────────
 
     private static (string generated, IReadOnlyList<Diagnostic> diagnostics) Generate(string source)
