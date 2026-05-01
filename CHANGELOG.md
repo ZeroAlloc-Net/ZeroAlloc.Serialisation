@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.0.1...v2.1.0) (2026-05-01)
+
+
+### Features
+
+* bundle source generator into ZeroAlloc.Serialisation package ([4969caf](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/4969caf327b1ad3a2f22ae2c04f6421fff4b287c))
+* bundle source generator into ZeroAlloc.Serialisation package ([91f0fdd](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/91f0fdd46a4294f5b09133c417b65fdfa327dbc9))
+* lock public API surface (PublicApiAnalyzers + api-compat gate) ([#24](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/24)) ([bf8727a](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/bf8727aa9fe9e1c3c22fd2dd06eba225d2e4a803))
+
 ## [2.0.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.0.0...v2.0.1) (2026-04-30)
 
 
