@@ -1,0 +1,7 @@
+#nullable enable
+static ZeroAlloc.Serialisation.SerializerDispatcherFallbackExtensions.WithSystemTextJsonFallback(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Text.Json.JsonSerializerOptions? options = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+ZeroAlloc.Serialisation.SerializerDispatcherFallbackExtensions
+ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher
+ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher.Deserialize(System.ReadOnlyMemory<byte> data, System.Type! type) -> object?
+ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher.Serialize(object! value, System.Type! type) -> System.ReadOnlyMemory<byte>
+ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher.SystemTextJsonFallbackDispatcher(ZeroAlloc.Serialisation.ISerializerDispatcher! inner, System.Text.Json.JsonSerializerOptions? options = null) -> void

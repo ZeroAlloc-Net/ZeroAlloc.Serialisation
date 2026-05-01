@@ -11,6 +11,15 @@
     <AdditionalFiles Include="PublicAPI.Shipped.txt" />
     <AdditionalFiles Include="PublicAPI.Unshipped.txt" />
   </ItemGroup>
+
+  <!--
+    The System.Text.Json fallback types are excluded from the netstandard2.1
+    TFM (see Compile Remove above), so their public API entries must only
+    apply to the modern TFMs that compile those files.
+  -->
+  <ItemGroup Condition="'$(TargetFramework)' != 'netstandard2.1'">
+    <AdditionalFiles Include="PublicAPI.Unshipped.modern.txt" />
+  </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
     <Compile Remove="SystemTextJsonFallbackDispatcher.cs" />
     <Compile Remove="SerializerDispatcherFallbackExtensions.cs" />

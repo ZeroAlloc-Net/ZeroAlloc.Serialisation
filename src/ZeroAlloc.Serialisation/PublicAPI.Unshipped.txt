@@ -1,1 +1,14 @@
 #nullable enable
+ZeroAlloc.Serialisation.ISerializer<T>
+ZeroAlloc.Serialisation.ISerializer<T>.Deserialize(System.ReadOnlySpan<byte> buffer) -> T?
+ZeroAlloc.Serialisation.ISerializer<T>.Serialize(System.Buffers.IBufferWriter<byte>! writer, T value) -> void
+ZeroAlloc.Serialisation.ISerializerDispatcher
+ZeroAlloc.Serialisation.ISerializerDispatcher.Deserialize(System.ReadOnlyMemory<byte> data, System.Type! type) -> object?
+ZeroAlloc.Serialisation.ISerializerDispatcher.Serialize(object! value, System.Type! type) -> System.ReadOnlyMemory<byte>
+ZeroAlloc.Serialisation.SerializationFormat
+ZeroAlloc.Serialisation.SerializationFormat.MemoryPack = 0 -> ZeroAlloc.Serialisation.SerializationFormat
+ZeroAlloc.Serialisation.SerializationFormat.MessagePack = 1 -> ZeroAlloc.Serialisation.SerializationFormat
+ZeroAlloc.Serialisation.SerializationFormat.SystemTextJson = 2 -> ZeroAlloc.Serialisation.SerializationFormat
+ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute
+ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute.Format.get -> ZeroAlloc.Serialisation.SerializationFormat
+ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute.ZeroAllocSerializableAttribute(ZeroAlloc.Serialisation.SerializationFormat format) -> void
