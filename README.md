@@ -12,12 +12,11 @@ Works with [MemoryPack](https://github.com/Cysharp/MemoryPack), [MessagePack](ht
 
 ## Install
 
-```bash
-# Core interface
-dotnet add package ZeroAlloc.Serialisation
+The source generator is bundled into the main package — a single `PackageReference` is all you need:
 
-# Source generator (add as analyzer — no runtime dependency)
-dotnet add package ZeroAlloc.Serialisation.Generator
+```bash
+# Core interface + bundled source generator
+dotnet add package ZeroAlloc.Serialisation
 
 # Pick your backend(s)
 dotnet add package ZeroAlloc.Serialisation.MemoryPack
@@ -25,12 +24,7 @@ dotnet add package ZeroAlloc.Serialisation.MessagePack
 dotnet add package ZeroAlloc.Serialisation.SystemTextJson
 ```
 
-Add the generator as an analyzer in your `.csproj`:
-
-```xml
-<PackageReference Include="ZeroAlloc.Serialisation.Generator" Version="*"
-                  OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-```
+> The standalone `ZeroAlloc.Serialisation.Generator` package is still published for backwards compatibility with existing direct PackageReferences, but new consumers should reference only `ZeroAlloc.Serialisation`.
 
 ## Quick Start
 
