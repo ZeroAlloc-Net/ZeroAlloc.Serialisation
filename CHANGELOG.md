@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.1.0...v2.2.0) (2026-05-13)
+
+
+### Features
+
+* **benchmarks:** add raw-vs-wrapped comparison for ZA.Serialisation overhead ([#30](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/30)) ([881464a](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/881464ac43a2647211d06f2366b5174917b3d0ca))
+
 ## [2.1.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.0.1...v2.1.0) (2026-05-01)
 
 
