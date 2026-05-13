@@ -86,6 +86,30 @@ The generated `SerializerDispatcher` uses a compile-time switch — no reflectio
 | `ZeroAlloc.Serialisation.MessagePack` | MessagePack backend | net8–10 |
 | `ZeroAlloc.Serialisation.SystemTextJson` | System.Text.Json backend | net8–10 |
 
+## Performance
+
+ZA.Serialisation is an abstraction layer — not a competing serializer. The honest comparison is whether the wrapper adds measurable overhead vs calling the raw library directly. .NET 10.0.7, BenchmarkDotNet v0.14.0.
+
+**Deserialize (wrapper is thin):**
+
+| Library | Raw | ZA wrapper | Overhead |
+|---|---:|---:|---:|
+| MemoryPack | 48 ns / 64 B | 55 ns / 64 B | +16%, 0 B |
+| MessagePack | 124 ns / 64 B | 183 ns / 96 B | +47%, +32 B |
+| System.Text.Json | 303 ns / 64 B | 375 ns / 64 B | +23%, 0 B |
+
+**Serialize (IBufferWriter pattern adds measurable cost):**
+
+| Library | Raw | ZA wrapper | Overhead |
+|---|---:|---:|---:|
+| MemoryPack | 75 ns / 48 B | 160 ns / 312 B | +114%, +264 B |
+| MessagePack | 128 ns / 32 B | 215 ns / 312 B | +68%, +280 B |
+| System.Text.Json | 226 ns / 48 B | 288 ns / 448 B | +27%, +400 B |
+
+The serialize wrapper costs more because `ISerializer<T>.Serialize` takes an `IBufferWriter<byte>` — the buffer abstraction. The 264–400 B is the `ArrayBufferWriter<byte>` allocated fresh per call by the benchmark. **The wrapper is fastest when the caller pools the buffer writer**; a real application that pools writers amortises the overhead to ~0 per call.
+
+Full methodology and guidance on when to use the wrapper vs raw libraries: [docs/performance.md](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/blob/main/docs/performance.md).
+
 ## AOT Safety
 
 Generated serializers suppress `[RequiresDynamicCode]` and `[RequiresUnreferencedCode]` because `T` is resolved at generation time. The backend's own source generator (MemoryPack / MessagePack) has already emitted the formatter, so no dynamic code is required at runtime.
