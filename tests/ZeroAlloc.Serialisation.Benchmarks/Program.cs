@@ -1,4 +1,3 @@
 using BenchmarkDotNet.Running;
-using ZeroAlloc.Serialisation.Benchmarks;
 
-BenchmarkRunner.Run<SerializerBenchmarks>();
+BenchmarkSwitcher.FromAssembly(typeof(Program).Assembly).Run(args);
