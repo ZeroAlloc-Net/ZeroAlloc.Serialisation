@@ -30,6 +30,13 @@
     <ProjectReference Include="..\..\src\ZeroAlloc.Serialisation\ZeroAlloc.Serialisation.csproj"
                       SetTargetFramework="TargetFramework=net10.0"
                       UndefineProperties="PublishAot" />
+    <!-- The generator's V1 value-object pipeline (2.3.0-2.3.2) gates emission on
+         a reference to the SystemTextJson backend assembly. Adding it here both
+         brings the AddZeroAllocValueObjectConverters extension method into scope
+         and trips the gate so the registrar + resolver actually get emitted. -->
+    <ProjectReference Include="..\..\src\ZeroAlloc.Serialisation.SystemTextJson\ZeroAlloc.Serialisation.SystemTextJson.csproj"
+                      SetTargetFramework="TargetFramework=net10.0"
+                      UndefineProperties="PublishAot" />
     <ProjectReference Include="..\..\src\ZeroAlloc.Serialisation.Generator\ZeroAlloc.Serialisation.Generator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false"
