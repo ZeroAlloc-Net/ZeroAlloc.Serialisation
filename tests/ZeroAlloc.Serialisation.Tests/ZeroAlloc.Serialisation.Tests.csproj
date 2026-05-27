@@ -14,5 +14,8 @@
     <ProjectReference Include="../../src/ZeroAlloc.Serialisation.MemoryPack/ZeroAlloc.Serialisation.MemoryPack.csproj" />
     <ProjectReference Include="../../src/ZeroAlloc.Serialisation.MessagePack/ZeroAlloc.Serialisation.MessagePack.csproj" />
     <ProjectReference Include="../../src/ZeroAlloc.Serialisation.SystemTextJson/ZeroAlloc.Serialisation.SystemTextJson.csproj" />
+    <ProjectReference Include="../../src/ZeroAlloc.Serialisation.Generator/ZeroAlloc.Serialisation.Generator.csproj"
+                      OutputItemType="Analyzer"
+                      ReferenceOutputAssembly="false" />
   </ItemGroup>
 </Project>
