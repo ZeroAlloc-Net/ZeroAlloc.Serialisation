@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.3.1...v2.3.2) (2026-05-27)
+
+
+### Bug Fixes
+
+* **generator:** emit JsonTypeInfoResolver for AOT-friendly value-object metadata ([#36](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/36)) ([8bbab64](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/8bbab64e2fce8f6e71c047da858e6e9558fad599))
+
 ## [2.3.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.3.0...v2.3.1) (2026-05-27)
 
 
