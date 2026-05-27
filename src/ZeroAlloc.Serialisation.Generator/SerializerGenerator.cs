@@ -103,7 +103,13 @@ public sealed class SerializerGenerator : IIncrementalGenerator
                 sourceCtx.AddSource($"{type.Name}SystemTextJsonConverter.g.cs", stjSource);
             }
 
-            // MessagePack + MemoryPack emissions land in Phases 4 + 5.
+            if (ValueObjectEmitter.ReferencesMessagePack(compilation))
+            {
+                var mpSource = ValueObjectEmitter.EmitMessagePackFormatter(type, underlyingProperty);
+                sourceCtx.AddSource($"{type.Name}MessagePackFormatter.g.cs", mpSource);
+            }
+
+            // MemoryPack emission lands in Phase 5.
         });
     }
 }

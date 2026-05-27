@@ -37,7 +37,60 @@ public class ValueObjectEmissionSnapshotTests
         Assert.Contains("[JsonConverter(typeof(CustomerIdSystemTextJsonConverter))]", text, StringComparison.Ordinal);
     }
 
-    private static GeneratorDriverRunResult RunGenerator(string source, bool withSystemTextJson = false)
+    [Fact]
+    public void MessagePack_EmitsFormatter_ForSinglePropertyValueObject()
+    {
+        var source = """
+            using ZeroAlloc.ValueObjects;
+            namespace TestModels;
+
+            [ValueObject]
+            public readonly partial struct CustomerId
+            {
+                public int Value { get; }
+                public CustomerId(int value) => Value = value;
+            }
+            """;
+
+        var result = RunGenerator(source, withMessagePack: true);
+
+        Assert.Empty(result.Diagnostics);
+        var emitted = result.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.EndsWith("CustomerIdMessagePackFormatter.g.cs", StringComparison.Ordinal));
+        Assert.NotNull(emitted);
+        var text = emitted!.ToString();
+        Assert.Contains("IMessagePackFormatter<CustomerId>", text, StringComparison.Ordinal);
+        Assert.Contains("reader.ReadInt32()", text, StringComparison.Ordinal);
+        Assert.Contains("writer.Write(value.Value)", text, StringComparison.Ordinal);
+        Assert.Contains("[MessagePackFormatter(typeof(CustomerIdMessagePackFormatter))]", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void MessagePack_EmitsNothing_WhenBackendNotReferenced()
+    {
+        var source = """
+            using ZeroAlloc.ValueObjects;
+            namespace TestModels;
+
+            [ValueObject]
+            public readonly partial struct CustomerId
+            {
+                public int Value { get; }
+                public CustomerId(int value) => Value = value;
+            }
+            """;
+
+        var result = RunGenerator(source, withSystemTextJson: false, withMessagePack: false, withMemoryPack: false);
+
+        Assert.DoesNotContain(result.GeneratedTrees,
+            t => t.FilePath.EndsWith("CustomerIdMessagePackFormatter.g.cs", StringComparison.Ordinal));
+    }
+
+    private static GeneratorDriverRunResult RunGenerator(
+        string source,
+        bool withSystemTextJson = false,
+        bool withMessagePack = false,
+        bool withMemoryPack = false)
     {
         // Stub the [ValueObject] attribute so the generator's FQN lookup matches.
         var valueObjectStub = """
@@ -54,6 +107,10 @@ public class ValueObjectEmissionSnapshotTests
         };
         if (withSystemTextJson)
             references.Add(MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.SystemTextJson.SystemTextJsonSerializer<int>).Assembly.Location));
+        if (withMessagePack)
+            references.Add(MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.MessagePack.MessagePackSerializer<int>).Assembly.Location));
+        if (withMemoryPack)
+            references.Add(MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.MemoryPack.MemoryPackSerializer<int>).Assembly.Location));
 
         var compilation = CSharpCompilation.Create(
             "TestAssembly",
