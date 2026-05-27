@@ -49,6 +49,44 @@ public class ValueObjectJsonContextRoundTripTests
         var roundTripped = JsonSerializer.Deserialize<JsonContextCustomerDto>(json, options);
         Assert.Equal(dto, roundTripped);
     }
+
+    [Fact]
+    public void GetTypeInfo_ForValueObject_AfterRegistrar_ReturnsNonNull()
+    {
+        // The load-bearing test for the 2.3.1 -> 2.3.2 fix: ASP.NET Core's
+        // endpoint factory pre-resolves typeinfo for every binding type at
+        // startup, hitting the resolver chain directly (not the Converters
+        // list). Without the 2.3.2 resolver insert, this call throws
+        // NotSupportedException("metadata not provided").
+        var options = new JsonSerializerOptions
+        {
+            TypeInfoResolver = JsonContextRoundTripContext.Default,
+        };
+        options.AddZeroAllocValueObjectConverters();
+
+        var typeInfo = options.GetTypeInfo(typeof(JsonContextCustomerId));
+
+        Assert.NotNull(typeInfo);
+        Assert.Equal(typeof(JsonContextCustomerId), typeInfo.Type);
+    }
+
+    [Fact]
+    public void GetTypeInfo_ForUnrelatedType_FallsThroughToJsonContext()
+    {
+        // Confirms the resolver chain composes correctly: our resolver
+        // returns null for non-value-object types, falling through to
+        // JsonContext.Default which DOES have typeinfo for DTOs.
+        var options = new JsonSerializerOptions
+        {
+            TypeInfoResolver = JsonContextRoundTripContext.Default,
+        };
+        options.AddZeroAllocValueObjectConverters();
+
+        var typeInfo = options.GetTypeInfo(typeof(JsonContextCustomerDto));
+
+        Assert.NotNull(typeInfo);
+        Assert.Equal(typeof(JsonContextCustomerDto), typeInfo.Type);
+    }
 }
 
 [global::ZeroAlloc.ValueObjects.ValueObject]
