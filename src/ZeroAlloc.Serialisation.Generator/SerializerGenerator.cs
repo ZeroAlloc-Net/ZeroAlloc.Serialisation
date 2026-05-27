@@ -109,7 +109,11 @@ public sealed class SerializerGenerator : IIncrementalGenerator
                 sourceCtx.AddSource($"{type.Name}MessagePackFormatter.g.cs", mpSource);
             }
 
-            // MemoryPack emission lands in Phase 5.
+            if (ValueObjectEmitter.ReferencesMemoryPack(compilation))
+            {
+                var mpkSource = ValueObjectEmitter.EmitMemoryPackFormatter(type, underlyingProperty);
+                sourceCtx.AddSource($"{type.Name}MemoryPackFormatter.g.cs", mpkSource);
+            }
         });
     }
 }

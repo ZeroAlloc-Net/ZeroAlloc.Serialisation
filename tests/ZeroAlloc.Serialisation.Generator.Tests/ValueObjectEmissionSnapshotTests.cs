@@ -66,6 +66,38 @@ public class ValueObjectEmissionSnapshotTests
     }
 
     [Fact]
+    public void MemoryPack_EmitsFormatter_ForSinglePropertyValueObject()
+    {
+        var source = """
+            using ZeroAlloc.ValueObjects;
+            namespace TestModels;
+
+            [ValueObject]
+            public readonly partial struct CustomerId
+            {
+                public int Value { get; }
+                public CustomerId(int value) => Value = value;
+            }
+            """;
+
+        var result = RunGenerator(source, withMemoryPack: true);
+
+        Assert.Empty(result.Diagnostics);
+        var emitted = result.GeneratedTrees
+            .FirstOrDefault(t => t.FilePath.EndsWith("CustomerIdMemoryPackFormatter.g.cs", StringComparison.Ordinal));
+        Assert.NotNull(emitted);
+        var text = emitted!.ToString();
+        Assert.Contains("MemoryPackFormatter<CustomerId>", text, StringComparison.Ordinal);
+        // MemoryPackCustomFormatterAttribute<TFormatter, T> is abstract and targets
+        // properties/fields only — the canonical path for a hand-rolled type formatter
+        // is MemoryPackFormatterProvider.Register<T>(formatter) at module init.
+        Assert.Contains("[ModuleInitializer]", text, StringComparison.Ordinal);
+        Assert.Contains("MemoryPackFormatterProvider.Register<CustomerId>(new CustomerIdMemoryPackFormatter())", text, StringComparison.Ordinal);
+        Assert.Contains("writer.WriteValue<int>(value.Value)", text, StringComparison.Ordinal);
+        Assert.Contains("reader.ReadValue<int>()", text, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void MessagePack_EmitsNothing_WhenBackendNotReferenced()
     {
         var source = """
