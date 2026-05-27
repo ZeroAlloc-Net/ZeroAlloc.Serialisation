@@ -105,3 +105,19 @@ JsonSerializer.Deserialize<CustomerId>("42")    // → CustomerId(42)
 Same transparency holds across MessagePack and MemoryPack. Adopters who reference multiple backends get the converter emitted for each.
 
 **Multi-property value-objects** (e.g. `Money { Amount, Currency }`) fall through to the backend's default object-shape serialization — no transparent emission, no diagnostic. If you need a specific wire format for them, declare an explicit converter the usual way (`[JsonConverter(typeof(...))]`).
+
+### Using value-objects with `JsonSerializerContext`
+
+When the consuming project uses STJ's source-generated `JsonSerializerContext` for AOT readiness, register the value-object converters explicitly during options setup:
+
+```csharp
+builder.Services.ConfigureHttpJsonOptions(o =>
+{
+    o.SerializerOptions.TypeInfoResolverChain.Insert(0, JsonContext.Default);
+    o.SerializerOptions.AddZeroAllocValueObjectConverters();  // adds every [ValueObject] converter
+});
+```
+
+`AddZeroAllocValueObjectConverters` is generated per assembly that declares `[ValueObject]` types — it lists each one and adds the converter to `options.Converters`. STJ consults that list before the context's typeinfo, so the underlying-primitive wire format takes precedence over default struct serialization. No `InternalsVisibleTo` required; no class-name coupling.
+
+For reflection-based STJ (no `JsonSerializerContext`), nothing changes — the `[JsonConverter]` attribute the generator emits on the partial-struct extension is picked up automatically via reflection.
