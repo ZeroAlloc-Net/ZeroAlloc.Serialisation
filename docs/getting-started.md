@@ -81,3 +81,27 @@ public interface ISerializer<T>
 `Serialize` writes directly to any `IBufferWriter<byte>` — pipe writers, array buffer writers, pooled buffers — with no intermediate `byte[]` allocation.
 
 `Deserialize` reads from a `ReadOnlySpan<byte>`, which covers in-memory buffers, `Memory<byte>.Span`, and slices of pooled arrays.
+
+## Value-object transparent serialization
+
+If a property's type is decorated with `[ZeroAlloc.ValueObjects.ValueObject]` and declares exactly one public property (typical TypedId shape), the generator emits a transparent serializer that reads/writes only the underlying value.
+
+```csharp
+[ValueObject]
+public readonly partial struct CustomerId
+{
+    public int Value { get; }
+    public CustomerId(int value) => Value = value;
+}
+```
+
+Reference `ZeroAlloc.Serialisation.SystemTextJson` (or `.MessagePack` / `.MemoryPack`), and JSON serialization becomes:
+
+```csharp
+JsonSerializer.Serialize(new CustomerId(42))    // → "42"   (bare integer, not {"value": 42})
+JsonSerializer.Deserialize<CustomerId>("42")    // → CustomerId(42)
+```
+
+Same transparency holds across MessagePack and MemoryPack. Adopters who reference multiple backends get the converter emitted for each.
+
+**Multi-property value-objects** (e.g. `Money { Amount, Currency }`) fall through to the backend's default object-shape serialization — no transparent emission, no diagnostic. If you need a specific wire format for them, declare an explicit converter the usual way (`[JsonConverter(typeof(...))]`).

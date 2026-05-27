@@ -1,7 +1,11 @@
+using System;
 using System.Collections.Immutable;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
 using ZeroAlloc.Serialisation.Generator.Models;
+
+[assembly: InternalsVisibleTo("ZeroAlloc.Serialisation.Generator.Tests")]
 
 namespace ZeroAlloc.Serialisation.Generator;
 
@@ -164,6 +168,33 @@ internal static class ModelExtractor
                 return true;
         }
         return false;
+    }
+
+    private const string ValueObjectAttributeFqn = "ZeroAlloc.ValueObjects.ValueObjectAttribute";
+
+    /// <summary>
+    /// If <paramref name="candidate"/> is decorated with
+    /// <c>[ZeroAlloc.ValueObjects.ValueObject]</c> (FQN match — no runtime
+    /// reference to ZA.ValueObjects required) and declares exactly one public
+    /// instance property, returns the type + its underlying property. Returns
+    /// null for everything else — class types, multi-property value-objects,
+    /// or types without the marker attribute.
+    /// </summary>
+    internal static (INamedTypeSymbol Type, IPropertySymbol UnderlyingProperty)? TryGetTransparentValueObject(INamedTypeSymbol candidate)
+    {
+        var hasMarker = candidate.GetAttributes()
+            .Any(a => string.Equals(
+                a.AttributeClass?.ToDisplayString(),
+                ValueObjectAttributeFqn,
+                StringComparison.Ordinal));
+        if (!hasMarker) return null;
+
+        var properties = candidate.GetMembers()
+            .OfType<IPropertySymbol>()
+            .Where(p => !p.IsStatic && p.DeclaredAccessibility == Accessibility.Public)
+            .ToArray();
+
+        return properties.Length == 1 ? (candidate, properties[0]) : null;
     }
 
     /// <summary>
