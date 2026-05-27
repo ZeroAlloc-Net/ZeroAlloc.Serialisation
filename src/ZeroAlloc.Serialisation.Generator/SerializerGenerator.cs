@@ -143,6 +143,14 @@ public sealed class SerializerGenerator : IIncrementalGenerator
 
             var source = ValueObjectEmitter.EmitSystemTextJsonRegistrar(detected);
             sourceCtx.AddSource("ValueObjectJsonConvertersExtensions.g.cs", source);
+
+            // 2.3.2: alongside the registrar, emit an IJsonTypeInfoResolver
+            // so JsonSerializerContext consumers can resolve value-object
+            // typeinfo at startup (the registrar's Converters.Add only wins
+            // at serialize/deserialize time — startup property configuration
+            // hits the resolver chain directly).
+            var resolverSource = ValueObjectEmitter.EmitSystemTextJsonResolver(detected);
+            sourceCtx.AddSource("ValueObjectJsonTypeInfoResolver.g.cs", resolverSource);
         });
     }
 }
