@@ -115,5 +115,34 @@ public sealed class SerializerGenerator : IIncrementalGenerator
                 sourceCtx.AddSource($"{type.Name}MemoryPackFormatter.g.cs", mpkSource);
             }
         });
+
+        // 2.3.1: per-assembly registrar emission. Batches every [ValueObject]
+        // candidate found in the compilation and emits a single
+        // ValueObjectJsonConvertersExtensions class with one entry per type.
+        // Required for JsonSerializerContext consumers — STJ's source generator
+        // doesn't see the [JsonConverter] attribute the per-type pipeline emits,
+        // so without an explicit Converters.Add call the context-driven typeinfo
+        // wins and the value-object serializes as {"value":N} instead of bare N.
+        var valueObjectsCollected = valueObjectCandidates.Collect();
+        var registrarInput = valueObjectsCollected.Combine(context.CompilationProvider);
+
+        context.RegisterSourceOutput(registrarInput, static (sourceCtx, pair) =>
+        {
+            var (allCandidates, compilation) = pair;
+
+            if (!ValueObjectEmitter.ReferencesSystemTextJson(compilation)) return;
+
+            var detected = new System.Collections.Generic.List<(INamedTypeSymbol Type, IPropertySymbol UnderlyingProperty)>(allCandidates.Length);
+            foreach (var candidate in allCandidates)
+            {
+                var d = ModelExtractor.TryGetTransparentValueObject(candidate);
+                if (d is not null) detected.Add(d.Value);
+            }
+
+            if (detected.Count == 0) return;
+
+            var source = ValueObjectEmitter.EmitSystemTextJsonRegistrar(detected);
+            sourceCtx.AddSource("ValueObjectJsonConvertersExtensions.g.cs", source);
+        });
     }
 }
