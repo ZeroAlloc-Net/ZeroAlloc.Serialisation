@@ -118,6 +118,56 @@ public class ValueObjectEmissionSnapshotTests
             t => t.FilePath.EndsWith("CustomerIdMessagePackFormatter.g.cs", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void MultiProperty_ValueObject_NoEmission_AllBackends()
+    {
+        var source = """
+            using ZeroAlloc.ValueObjects;
+            namespace TestModels;
+
+            [ValueObject]
+            public readonly partial struct Money
+            {
+                public decimal Amount { get; }
+                public string Currency { get; }
+                public Money(decimal amount, string currency)
+                {
+                    Amount = amount;
+                    Currency = currency;
+                }
+            }
+            """;
+
+        var result = RunGenerator(source, withSystemTextJson: true, withMessagePack: true, withMemoryPack: true);
+
+        Assert.DoesNotContain(result.GeneratedTrees,
+            t => t.FilePath.EndsWith("MoneySystemTextJsonConverter.g.cs", StringComparison.Ordinal));
+        Assert.DoesNotContain(result.GeneratedTrees,
+            t => t.FilePath.EndsWith("MoneyMessagePackFormatter.g.cs", StringComparison.Ordinal));
+        Assert.DoesNotContain(result.GeneratedTrees,
+            t => t.FilePath.EndsWith("MoneyMemoryPackFormatter.g.cs", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void NonValueObject_PartialStruct_NoEmission()
+    {
+        var source = """
+            namespace TestModels;
+
+            // Note: no [ValueObject] attribute.
+            public readonly partial struct Wrap
+            {
+                public int Value { get; }
+                public Wrap(int value) => Value = value;
+            }
+            """;
+
+        var result = RunGenerator(source, withSystemTextJson: true);
+
+        Assert.Empty(result.GeneratedTrees.Where(t =>
+            t.FilePath.EndsWith("WrapSystemTextJsonConverter.g.cs", StringComparison.Ordinal)));
+    }
+
     private static GeneratorDriverRunResult RunGenerator(
         string source,
         bool withSystemTextJson = false,
