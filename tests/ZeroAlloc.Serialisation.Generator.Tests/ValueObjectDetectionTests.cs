@@ -93,6 +93,36 @@ public class ValueObjectDetectionTests
         Assert.Null(result);
     }
 
+    [Fact]
+    public void ReferencesSystemTextJson_TrueWhenAssemblyReferenced()
+    {
+        var compilation = CSharpCompilation.Create(
+            "TestAssembly",
+            new[] { CSharpSyntaxTree.ParseText("class C { }") },
+            new[]
+            {
+                MetadataReference.CreateFromFile(typeof(object).Assembly.Location),
+                MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.SystemTextJson.SystemTextJsonSerializer<int>).Assembly.Location),
+            });
+
+        Assert.True(ValueObjectEmitter.ReferencesSystemTextJson(compilation));
+        Assert.False(ValueObjectEmitter.ReferencesMessagePack(compilation));
+        Assert.False(ValueObjectEmitter.ReferencesMemoryPack(compilation));
+    }
+
+    [Fact]
+    public void ReferencesSystemTextJson_FalseWhenAssemblyNotReferenced()
+    {
+        var compilation = CSharpCompilation.Create(
+            "TestAssembly",
+            new[] { CSharpSyntaxTree.ParseText("class C { }") },
+            new[] { MetadataReference.CreateFromFile(typeof(object).Assembly.Location) });
+
+        Assert.False(ValueObjectEmitter.ReferencesSystemTextJson(compilation));
+        Assert.False(ValueObjectEmitter.ReferencesMessagePack(compilation));
+        Assert.False(ValueObjectEmitter.ReferencesMemoryPack(compilation));
+    }
+
     private static CSharpCompilation Compile(string source) =>
         CSharpCompilation.Create(
             "TestAssembly",

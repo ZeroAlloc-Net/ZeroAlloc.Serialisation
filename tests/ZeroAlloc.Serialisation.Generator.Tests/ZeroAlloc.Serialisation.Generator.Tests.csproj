@@ -12,5 +12,6 @@
     <PackageReference Include="Basic.Reference.Assemblies.Net100" />
     <ProjectReference Include="../../src/ZeroAlloc.Serialisation.Generator/ZeroAlloc.Serialisation.Generator.csproj" />
     <ProjectReference Include="../../src/ZeroAlloc.Serialisation/ZeroAlloc.Serialisation.csproj" />
+    <ProjectReference Include="../../src/ZeroAlloc.Serialisation.SystemTextJson/ZeroAlloc.Serialisation.SystemTextJson.csproj" />
   </ItemGroup>
 </Project>
