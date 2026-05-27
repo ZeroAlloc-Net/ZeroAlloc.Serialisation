@@ -76,5 +76,34 @@ public sealed class SerializerGenerator : IIncrementalGenerator
         {
             DispatcherEmitter.Emit(ctx, allModels);
         });
+
+        // V1: parallel discovery pass for [ZeroAlloc.ValueObjects.ValueObject]
+        // partial structs. Emits transparent serializers for whichever
+        // backend assemblies the consuming compilation references.
+        var valueObjectCandidates = context.SyntaxProvider
+            .ForAttributeWithMetadataName(
+                "ZeroAlloc.ValueObjects.ValueObjectAttribute",
+                predicate: static (node, _) =>
+                    node is StructDeclarationSyntax || node is RecordDeclarationSyntax,
+                transform: static (ctx, _) => (INamedTypeSymbol)ctx.TargetSymbol);
+
+        var withCompilation = valueObjectCandidates.Combine(context.CompilationProvider);
+
+        context.RegisterSourceOutput(withCompilation, static (sourceCtx, pair) =>
+        {
+            var (candidate, compilation) = pair;
+            var detected = ModelExtractor.TryGetTransparentValueObject(candidate);
+            if (detected is null) return;
+
+            var (type, underlyingProperty) = detected.Value;
+
+            if (ValueObjectEmitter.ReferencesSystemTextJson(compilation))
+            {
+                var stjSource = ValueObjectEmitter.EmitSystemTextJsonConverter(type, underlyingProperty);
+                sourceCtx.AddSource($"{type.Name}SystemTextJsonConverter.g.cs", stjSource);
+            }
+
+            // MessagePack + MemoryPack emissions land in Phases 4 + 5.
+        });
     }
 }
