@@ -53,6 +53,43 @@ public class ValueObjectRegistrarEmissionTests
         Assert.Contains("return options;", text, StringComparison.Ordinal);
     }
 
+    [Fact]
+    public void Registrar_NotEmitted_WhenNoValueObjectsPresent()
+    {
+        var source = """
+            namespace TestModels;
+
+            public class Plain
+            {
+                public int Value { get; set; }
+            }
+            """;
+
+        var result = RunGenerator(source, withSystemTextJson: true);
+
+        Assert.DoesNotContain(result.GeneratedTrees, t => t.FilePath.EndsWith("ValueObjectJsonConvertersExtensions.g.cs", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void Registrar_NotEmitted_WhenSystemTextJsonBackendNotReferenced()
+    {
+        var source = """
+            using ZeroAlloc.ValueObjects;
+            namespace TestModels;
+
+            [ValueObject]
+            public readonly partial struct CustomerId
+            {
+                public int Value { get; }
+                public CustomerId(int v) => Value = v;
+            }
+            """;
+
+        var result = RunGenerator(source);
+
+        Assert.DoesNotContain(result.GeneratedTrees, t => t.FilePath.EndsWith("ValueObjectJsonConvertersExtensions.g.cs", StringComparison.Ordinal));
+    }
+
     private static GeneratorDriverRunResult RunGenerator(string source, bool withSystemTextJson = false, bool withMessagePack = false, bool withMemoryPack = false)
     {
         var valueObjectStub = """
