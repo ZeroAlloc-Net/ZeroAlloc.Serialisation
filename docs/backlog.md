@@ -30,3 +30,23 @@ Multi-property value-objects (`Money { Amount, Currency }`) fall through silentl
 **Surfaced during V1 code-review** (2026-05-27): `ValueObjectEmitter.MessagePackReadWriteForType` falls through to `reader.ReadString()!` for any underlying type outside `Int16/32/64`, `Single/Double`, `Boolean`, `String`. STJ's sibling already handles `Guid` and `DateTime` explicitly. The asymmetry means an adopter who tries `[ValueObject] struct OrderId { Guid Value }` with both STJ + MessagePack referenced will compile under STJ but hit a `CS1503` under MessagePack (`Guid` has no `string` ctor).
 
 **Why deferred:** V1 spec was int-only; no template currently demands `Guid`-shaped IDs. Surfaces immediately the moment one does. Single-method-table extension; ~5 lines + a snapshot test.
+
+---
+
+## ~~V1.5 — JsonSerializerContext interop helper~~ — ✅ shipped 2.3.1 (2026-05-27)
+
+**Shipped:** Generator emits a per-assembly public `ValueObjectJsonConvertersExtensions` class in the `ZeroAlloc.Serialisation.SystemTextJson` namespace, with an `AddZeroAllocValueObjectConverters` extension method on `JsonSerializerOptions`. Consumers using `JsonSerializerContext` source-gen call this once during STJ options configuration; STJ's `options.Converters` list takes precedence over the context's typeinfo, so the transparent-primitive wire format wins.
+
+**Why it shipped:** 2.3.0's `[JsonConverter]` attribute approach works for reflection-based STJ but not for `JsonSerializerContext` source-gen — Roslyn incremental generators don't see each other's output in the same compilation pass. Surfaced during the [ZeroAlloc.Templates PR #127](https://github.com/ZeroAlloc-Net/ZeroAlloc.Templates/pull/127) migration; PR closed, this work unblocks the re-author.
+
+**Design + plan:** [`docs/plans/2026-05-27-jsoncontext-interop-design.md`](plans/2026-05-27-jsoncontext-interop-design.md) + [`docs/plans/2026-05-27-jsoncontext-interop-helper.md`](plans/2026-05-27-jsoncontext-interop-helper.md).
+
+---
+
+## V2 — MessagePack registrar helper
+
+MessagePack-CSharp with the AOT source generator has the analogous Roslyn-gens-can't-see-each-other gap. No current ZA consumer uses MessagePack with the AOT source-gen pipeline (the runtime composite resolver picks up `[MessagePackFormatter]` via reflection), but symmetry argues for a parallel `AddZeroAllocValueObjectFormatters` extension method on `IFormatterResolver` (or whatever MessagePack's options-equivalent is). Defer until a consumer surfaces.
+
+## V3 — Bebop backend support
+
+Adding [Bebop](https://github.com/6over3/bebop) as a fourth supported backend. The 2.3.0 per-backend-emission architecture (gating on `compilation.ReferencedAssemblyNames`) scales cleanly — same shape as the MessagePack/MemoryPack additions, swapping in Bebop's serialization primitives. Recorded as a future direction; no concrete timeline.
