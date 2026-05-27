@@ -120,4 +120,6 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 
 `AddZeroAllocValueObjectConverters` is generated per assembly that declares `[ValueObject]` types — it lists each one and adds the converter to `options.Converters`. STJ consults that list before the context's typeinfo, so the underlying-primitive wire format takes precedence over default struct serialization. No `InternalsVisibleTo` required; no class-name coupling.
 
+**Call order matters.** `AddZeroAllocValueObjectConverters()` inserts the value-object typeinfo resolver at chain index 0. Call it **after** your `Insert(0, JsonContext.Default)` so the resulting chain is `[VO-resolver, JsonContext.Default]` — value-objects resolved by us, DTOs by JsonContext. Reversing the order produces `[JsonContext.Default, VO-resolver]` and value-object typeinfo would be served by JsonContext's broken stub instead.
+
 For reflection-based STJ (no `JsonSerializerContext`), nothing changes — the `[JsonConverter]` attribute the generator emits on the partial-struct extension is picked up automatically via reflection.

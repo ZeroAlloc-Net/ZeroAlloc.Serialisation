@@ -43,9 +43,21 @@ Multi-property value-objects (`Money { Amount, Currency }`) fall through silentl
 
 ---
 
+## ~~V1.6 — JsonTypeInfoResolver emission for AOT/JsonContext interop~~ — ✅ shipped 2.3.2 (2026-05-27)
+
+**Shipped:** Generator emits a per-assembly internal `ValueObjectJsonTypeInfoResolver` that returns pre-configured `JsonTypeInfo<T>` for every `[ValueObject]` type via `JsonMetadataServices.CreateValueInfo<T>`. The existing `AddZeroAllocValueObjectConverters` registrar inserts this resolver at `TypeInfoResolverChain` index 0 alongside its existing `Converters.Add` calls.
+
+**Why it shipped:** 2.3.1 closed the runtime serialize/deserialize gap but not the startup typeinfo gap. ASP.NET Core's request-delegate factory pre-resolves typeinfo at startup, hitting the resolver chain directly (not the Converters list). [ZeroAlloc.Templates PR #128](https://github.com/ZeroAlloc-Net/ZeroAlloc.Templates/pull/128) za-clean AOT smoke caught this — same Roslyn-gens-can't-see-each-other root cause as the original 2.3.0 gap, just surfacing in a different STJ pipeline corner.
+
+**Design + plan:** [`docs/plans/2026-05-27-jsontypeinfo-resolver-design.md`](plans/2026-05-27-jsontypeinfo-resolver-design.md) + [`docs/plans/2026-05-27-jsontypeinfo-resolver.md`](plans/2026-05-27-jsontypeinfo-resolver.md).
+
+---
+
 ## V2 — MessagePack registrar helper
 
 MessagePack-CSharp with the AOT source generator has the analogous Roslyn-gens-can't-see-each-other gap. No current ZA consumer uses MessagePack with the AOT source-gen pipeline (the runtime composite resolver picks up `[MessagePackFormatter]` via reflection), but symmetry argues for a parallel `AddZeroAllocValueObjectFormatters` extension method on `IFormatterResolver` (or whatever MessagePack's options-equivalent is). Defer until a consumer surfaces.
+
+**Note:** Under AOT source-gen, MessagePack also has the analogous startup typeinfo gap (the AOT-generated resolver can't see the per-type `[MessagePackFormatter]` attribute emitted by our generator). When V2 lands, ship both the registrar extension AND a typeinfo-resolver-equivalent at the same time — same shape as 2.3.1 (V1.5) + 2.3.2 (V1.6) for STJ.
 
 ## V3 — Bebop backend support
 
