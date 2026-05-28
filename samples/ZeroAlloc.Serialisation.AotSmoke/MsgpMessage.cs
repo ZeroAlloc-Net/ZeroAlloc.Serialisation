@@ -1,10 +1,10 @@
 namespace ZeroAlloc.Serialisation.AotSmoke
 {
-    [MessagePack.MessagePackObject]
+    [global::MessagePack.MessagePackObject]
     [ZeroAllocSerializable(SerializationFormat.MessagePack)]
     public sealed class MsgpMessage
     {
-        [MessagePack.Key(0)] public string Id { get; set; } = "";
-        [MessagePack.Key(1)] public int Value { get; set; }
+        [global::MessagePack.Key(0)] public string Id { get; set; } = "";
+        [global::MessagePack.Key(1)] public int Value { get; set; }
     }
 }

@@ -37,12 +37,30 @@
     <ProjectReference Include="..\..\src\ZeroAlloc.Serialisation.SystemTextJson\ZeroAlloc.Serialisation.SystemTextJson.csproj"
                       SetTargetFramework="TargetFramework=net10.0"
                       UndefineProperties="PublishAot" />
+    <!--
+      Reference the ZA MessagePack adapter so the value-object generator's
+      ReferencesMessagePack() gate trips, triggering emission of the 2.3.3
+      resolver helper (ValueObjectMessagePackResolverExtensions.g.cs) into
+      this assembly. Without this, the [ValueObject]-typed property on
+      ValueObjectMpDto would lack a wire-format-correct formatter under
+      MessagePack source-gen.
+    -->
+    <ProjectReference Include="..\..\src\ZeroAlloc.Serialisation.MessagePack\ZeroAlloc.Serialisation.MessagePack.csproj"
+                      SetTargetFramework="TargetFramework=net10.0"
+                      UndefineProperties="PublishAot" />
     <ProjectReference Include="..\..\src\ZeroAlloc.Serialisation.Generator\ZeroAlloc.Serialisation.Generator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false"
                       SetTargetFramework="TargetFramework=netstandard2.0"
                       UndefineProperties="PublishAot" />
     <PackageReference Include="MemoryPack" />
+    <!--
+      MessagePack 3.x transitively pulls in MessagePackAnalyzer which contains
+      the source generator that emits IMessagePackFormatter<T> for [MessagePackObject]
+      types at compile time — exercised here by ValueObjectMpDto, whose value-
+      object property requires the 2.3.3 resolver helper to round-trip with
+      bare-primitive wire format under PublishAot=true.
+    -->
     <PackageReference Include="MessagePack" />
   </ItemGroup>
 </Project>
