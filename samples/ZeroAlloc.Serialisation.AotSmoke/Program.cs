@@ -52,13 +52,22 @@ var resolverWired = voTypeInfo is not null && voTypeInfo.Type == typeof(ValueObj
 // If the resolver returned JsonContext's broken stub instead of ours, this
 // would write {"Id":{"Value":42},"Label":"x"} and the bare-integer assertion
 // would fail.
+// Use the source-gen-typeinfo overloads of Serialize/Deserialize so the
+// smoke compiles cleanly under <WarningsAsErrors>IL2026;IL3050;...</WarningsAsErrors>
+// (the options-based JsonSerializer.Serialize<T>(value, options) overload
+// triggers IL2026 + IL3050 because it walks reflection at compile-time
+// analysis even when the runtime resolver is source-gen-backed). The
+// typeinfo path STILL respects options.Converters (the 2.3.1 registrar's
+// Converters.Add precedence flows through GetConverter), so the test
+// invariants are preserved.
 var dto = new ValueObjectDto(new ValueObjectId(42), "alpha");
-var dtoJson = JsonSerializer.Serialize(dto, jsonOptions);
+var customContext = new ValueObjectDtoContext(jsonOptions);
+var dtoJson = JsonSerializer.Serialize(dto, customContext.ValueObjectDto);
 var bareIntegerWire = dtoJson.Contains("\"Id\":42", StringComparison.Ordinal)
     && !dtoJson.Contains("\"value\"", StringComparison.OrdinalIgnoreCase)
     && !dtoJson.Contains("\"Value\"", StringComparison.Ordinal);
 
-var dtoBack = JsonSerializer.Deserialize<ValueObjectDto>(dtoJson, jsonOptions);
+var dtoBack = JsonSerializer.Deserialize(dtoJson, customContext.ValueObjectDto);
 var roundTrip = dtoBack is not null
     && dtoBack.Id.Value == dto.Id.Value
     && string.Equals(dtoBack.Label, dto.Label, StringComparison.Ordinal);
