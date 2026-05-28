@@ -4,6 +4,7 @@ using System.Text.Json;
 using ZeroAlloc.Serialisation;
 using ZeroAlloc.Serialisation.AotSmoke;
 using ZeroAlloc.Serialisation.SystemTextJson;
+using ZeroAlloc.Serialisation.MessagePack;
 
 // Round-trip all three V0 [ZeroAllocSerializable] formats under PublishAot=true.
 // Since #15 landed, the SystemTextJson path routes through a [JsonSerializable]-
@@ -74,11 +75,46 @@ var roundTrip = dtoBack is not null
 
 var v1Ok = resolverWired && bareIntegerWire && roundTrip;
 
-var ok = v0Ok && v1Ok;
+// V2 (2.3.3): MessagePack source-gen + [ValueObject] field on a [MessagePackObject]
+// DTO. Without 2.3.3's resolver, the GeneratedMessagePackResolver returns a
+// default-shape formatter for ValueObjectMpId, producing wrong wire format.
+// AddZeroAllocValueObjectFormatters prepends our resolver to the chain,
+// intercepting the value-object lookup before the source-gen resolver sees it.
+var mpOptions = global::MessagePack.MessagePackSerializerOptions.Standard
+    .AddZeroAllocValueObjectFormatters();
+
+var mpDto = new ValueObjectMpDto { Id = new ValueObjectMpId(42), Label = "alpha" };
+byte[] mpBytes;
+ValueObjectMpDto? mpDtoBack;
+string mpJson;
+try
+{
+    mpBytes = global::MessagePack.MessagePackSerializer.Serialize(mpDto, mpOptions);
+    mpJson = global::MessagePack.MessagePackSerializer.ConvertToJson(mpBytes);
+    mpDtoBack = global::MessagePack.MessagePackSerializer.Deserialize<ValueObjectMpDto>(mpBytes, mpOptions);
+}
+catch (Exception ex)
+{
+    Console.WriteLine($"AOT smoke: FAIL (MessagePack source-gen DTO threw {ex.GetType().Name}: {ex.Message})");
+    return 1;
+}
+
+// Wire format invariant: MessagePack 3.x with [Key(int)] uses intkey array
+// layout — ConvertToJson renders as [42,"alpha"]. Without 2.3.3's resolver,
+// the value-object field would serialize as a wrapped sub-array [[42],"alpha"].
+var mpBareInteger = string.Equals(mpJson, "[42,\"alpha\"]", StringComparison.Ordinal);
+var mpRoundTrip = mpDtoBack is not null
+    && mpDtoBack.Id.Value == mpDto.Id.Value
+    && string.Equals(mpDtoBack.Label, mpDto.Label, StringComparison.Ordinal);
+
+var v2Ok = mpBareInteger && mpRoundTrip;
+
+var ok = v0Ok && v1Ok && v2Ok;
 if (!ok)
 {
-    Console.WriteLine($"AOT smoke: FAIL (v0={v0Ok}, resolver={resolverWired}, wire={bareIntegerWire}, roundTrip={roundTrip})");
+    Console.WriteLine($"AOT smoke: FAIL (v0={v0Ok}, v1.resolver={resolverWired}, v1.wire={bareIntegerWire}, v1.roundTrip={roundTrip}, v2.bareInt={mpBareInteger}, v2.roundTrip={mpRoundTrip})");
     Console.WriteLine($"  dtoJson={dtoJson}");
+    Console.WriteLine($"  mpJson={mpJson}");
     return 1;
 }
 

@@ -130,8 +130,6 @@ public sealed class SerializerGenerator : IIncrementalGenerator
         {
             var (allCandidates, compilation) = pair;
 
-            if (!ValueObjectEmitter.ReferencesSystemTextJson(compilation)) return;
-
             var detected = new System.Collections.Generic.List<(INamedTypeSymbol Type, IPropertySymbol UnderlyingProperty)>(allCandidates.Length);
             foreach (var candidate in allCandidates)
             {
@@ -141,16 +139,27 @@ public sealed class SerializerGenerator : IIncrementalGenerator
 
             if (detected.Count == 0) return;
 
-            var source = ValueObjectEmitter.EmitSystemTextJsonRegistrar(detected);
-            sourceCtx.AddSource("ValueObjectJsonConvertersExtensions.g.cs", source);
+            if (ValueObjectEmitter.ReferencesSystemTextJson(compilation))
+            {
+                var source = ValueObjectEmitter.EmitSystemTextJsonRegistrar(detected);
+                sourceCtx.AddSource("ValueObjectJsonConvertersExtensions.g.cs", source);
 
-            // 2.3.2: alongside the registrar, emit an IJsonTypeInfoResolver
-            // so JsonSerializerContext consumers can resolve value-object
-            // typeinfo at startup (the registrar's Converters.Add only wins
-            // at serialize/deserialize time — startup property configuration
-            // hits the resolver chain directly).
-            var resolverSource = ValueObjectEmitter.EmitSystemTextJsonResolver(detected);
-            sourceCtx.AddSource("ValueObjectJsonTypeInfoResolver.g.cs", resolverSource);
+                // 2.3.2: alongside the registrar, emit an IJsonTypeInfoResolver
+                // so JsonSerializerContext consumers can resolve value-object
+                // typeinfo at startup (the registrar's Converters.Add only wins
+                // at serialize/deserialize time — startup property configuration
+                // hits the resolver chain directly).
+                var resolverSource = ValueObjectEmitter.EmitSystemTextJsonResolver(detected);
+                sourceCtx.AddSource("ValueObjectJsonTypeInfoResolver.g.cs", resolverSource);
+            }
+
+            // 2.3.3: MessagePack equivalent of the STJ resolver — closes the
+            // MessagePack.SourceGenerator interop gap. Same shape, single-file.
+            if (ValueObjectEmitter.ReferencesMessagePack(compilation))
+            {
+                var mpResolverSource = ValueObjectEmitter.EmitMessagePackResolver(detected);
+                sourceCtx.AddSource("ValueObjectMessagePackResolverExtensions.g.cs", mpResolverSource);
+            }
         });
     }
 }
