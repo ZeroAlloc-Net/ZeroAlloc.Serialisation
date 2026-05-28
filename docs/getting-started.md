@@ -123,3 +123,19 @@ builder.Services.ConfigureHttpJsonOptions(o =>
 **Call order matters.** `AddZeroAllocValueObjectConverters()` inserts the value-object typeinfo resolver at chain index 0. Call it **after** your `Insert(0, JsonContext.Default)` so the resulting chain is `[VO-resolver, JsonContext.Default]` — value-objects resolved by us, DTOs by JsonContext. Reversing the order produces `[JsonContext.Default, VO-resolver]` and value-object typeinfo would be served by JsonContext's broken stub instead.
 
 For reflection-based STJ (no `JsonSerializerContext`), nothing changes — the `[JsonConverter]` attribute the generator emits on the partial-struct extension is picked up automatically via reflection.
+
+### Using value-objects with `MessagePack.SourceGenerator`
+
+When the consuming project uses MessagePack-CSharp's AOT source generator for trimmer-friendly typeinfo, register the value-object formatters explicitly during options setup:
+
+```csharp
+var options = MessagePackSerializerOptions.Standard
+    .WithResolver(GeneratedMessagePackResolver.Instance)
+    .AddZeroAllocValueObjectFormatters();
+```
+
+`AddZeroAllocValueObjectFormatters` is generated per assembly that declares `[ValueObject]` types — it prepends a `ValueObjectMessagePackResolver` to the composite chain. The resolver returns our generator-emitted formatter for value-object types; for all other types it returns null and `CompositeResolver` falls through to the user's resolver (typically `GeneratedMessagePackResolver` or `StandardResolver`).
+
+**Call order matters.** `AddZeroAllocValueObjectFormatters` prepends our resolver to whatever `options.Resolver` was set to. Call it AFTER setting your primary resolver via `WithResolver`. Calling in the wrong order leaves the user's resolver wrapping ours, which inverts precedence — value-object lookups hit the source-gen resolver first and produce the wrong wire format.
+
+For reflection-based MessagePack consumers (no `MessagePack.SourceGenerator`), nothing changes — the `[MessagePackFormatter]` attribute the generator emits on the partial-struct extension is picked up by MessagePack-CSharp's reflection-based attribute resolver automatically.

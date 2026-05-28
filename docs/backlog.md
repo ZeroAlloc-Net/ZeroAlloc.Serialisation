@@ -53,11 +53,11 @@ Multi-property value-objects (`Money { Amount, Currency }`) fall through silentl
 
 ---
 
-## V2 — MessagePack registrar helper
+## ~~V2 — MessagePack registrar + IFormatterResolver~~ — ✅ shipped 2.3.3 (2026-05-28)
 
-MessagePack-CSharp with the AOT source generator has the analogous Roslyn-gens-can't-see-each-other gap. No current ZA consumer uses MessagePack with the AOT source-gen pipeline (the runtime composite resolver picks up `[MessagePackFormatter]` via reflection), but symmetry argues for a parallel `AddZeroAllocValueObjectFormatters` extension method on `IFormatterResolver` (or whatever MessagePack's options-equivalent is). Defer until a consumer surfaces.
+**Shipped:** Generator emits a per-assembly `internal sealed ValueObjectMessagePackResolver : IFormatterResolver` (with the canonical `FormatterCache<T>` generic-static-cache pattern) plus a public `AddZeroAllocValueObjectFormatters(this MessagePackSerializerOptions)` extension method — single-file emission because MessagePack has only one registration shape (resolver chain), unlike STJ's `Converters` list + `TypeInfoResolverChain` split. Consumers using `MessagePack.SourceGenerator` (AOT) call `options.WithResolver(GeneratedMessagePackResolver.Instance).AddZeroAllocValueObjectFormatters()` and value-object properties on `[MessagePackObject]` DTOs round-trip with bare-primitive wire format.
 
-**Note:** Under AOT source-gen, MessagePack also has the analogous startup typeinfo gap (the AOT-generated resolver can't see the per-type `[MessagePackFormatter]` attribute emitted by our generator). When V2 lands, ship both the registrar extension AND a typeinfo-resolver-equivalent at the same time — same shape as 2.3.1 (V1.5) + 2.3.2 (V1.6) for STJ.
+**Design + plan:** [`docs/plans/2026-05-28-messagepack-resolver-helper-design.md`](plans/2026-05-28-messagepack-resolver-helper-design.md) + [`docs/plans/2026-05-28-messagepack-resolver-helper.md`](plans/2026-05-28-messagepack-resolver-helper.md).
 
 ## V3 — Bebop backend support
 
