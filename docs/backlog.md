@@ -66,6 +66,10 @@ Multi-property value-objects (`Money { Amount, Currency }`) fall through silentl
 
 **Design + plan:** [`docs/plans/2026-05-28-messagepack-resolver-helper-design.md`](plans/2026-05-28-messagepack-resolver-helper-design.md) + [`docs/plans/2026-05-28-messagepack-resolver-helper.md`](plans/2026-05-28-messagepack-resolver-helper.md).
 
-## V3 — Bebop backend support
+## V3 — Bebop backend support (deferred — architectural mismatch)
 
-Adding [Bebop](https://github.com/6over3/bebop) as a fourth supported backend. The 2.3.0 per-backend-emission architecture (gating on `compilation.ReferencedAssemblyNames`) scales cleanly — same shape as the MessagePack/MemoryPack additions, swapping in Bebop's serialization primitives. Recorded as a future direction; no concrete timeline.
+**Status:** deferred. The original 2.3.0 backlog entry claimed Bebop "scales cleanly — same shape as the MessagePack/MemoryPack additions." Subsequent research ([`docs/research/2026-06-10-bebop-c-sharp-api-research.md`](research/2026-06-10-bebop-c-sharp-api-research.md)) found this is **incorrect**. Bebop has no user-implementable `IBebopFormatter<T>` / converter interface — `[BebopRecord]` is generator-emitted, not a hook for hand-authored types. The whole stack is schema-first (`.bop` schemas + `bebopc` codegen), which is architecturally hostile to attribute-driven `[ValueObject]` structs that exist only in .NET.
+
+**What would need to be true for V3 to ship:** Bebop would have to add a per-type converter hook similar to MessagePack-CSharp's `IMessagePackFormatter<T>`, OR ZA.Serialisation would have to take on the much larger scope of "emit a `.bop` schema fragment + companion wrapper class" per VO — losing the typed-ID semantics on the Bebop side.
+
+**Graduation signal:** an adopter requests Bebop interop AND has a concrete use case where the wrapper-type approach is acceptable. Until then, V3 stays here as a public record of "considered, evidence-based not-yet."
