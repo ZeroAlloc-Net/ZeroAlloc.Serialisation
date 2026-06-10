@@ -25,11 +25,18 @@ Multi-property value-objects (`Money { Amount, Currency }`) fall through silentl
 
 ---
 
-## V2 — Extend MessagePack underlying-type table to cover Guid/DateTime
+## ~~V2 — Extend MessagePack underlying-type table to cover Guid/DateTime~~ — ✅ shipped 2.4.0
+
+**Shipped:** Both serializer switches (`MessagePackReadWriteForType` and `SystemTextJsonReadWriteForType`) now cover the full set of common underlying types beyond the bare primitives: `Guid`, `DateTime`, `DateTimeOffset`, `TimeSpan`, `decimal`, `byte[]`. MessagePack uses resolver dispatch (`MessagePackSerializer.Serialize<T>` / `Deserialize<T>`) for consistency and to respect adopter-registered custom formatters. STJ uses the native `Utf8JsonReader.GetXxx` / `Utf8JsonWriter.WriteXxxValue` methods where they exist, with `TimeSpan.Parse(reader.GetString()!)` as the read path for `TimeSpan` and `value.ToString()` on the write side for the same reason (no `WriteStringValue(TimeSpan)` overload). MemoryPack's emit was already type-agnostic via `ReadValue<T>` / `WriteValue<T>` — no change needed there.
+
+**Regression coverage:** `samples/ZeroAlloc.Serialisation.AotSmoke/` gained six fixtures (`ValueObjectGuidId`, `ValueObjectDateTimeId`, `ValueObjectDateTimeOffsetId`, `ValueObjectTimeSpanId`, `ValueObjectDecimalId`, `ValueObjectBytesId`) plus direct converter/formatter round-trip assertions in `Program.cs`. The aot-smoke CI check fails if any of the six types regress.
+
+<details>
+<summary>Original V2 proposal (kept for context)</summary>
 
 **Surfaced during V1 code-review** (2026-05-27): `ValueObjectEmitter.MessagePackReadWriteForType` falls through to `reader.ReadString()!` for any underlying type outside `Int16/32/64`, `Single/Double`, `Boolean`, `String`. STJ's sibling already handles `Guid` and `DateTime` explicitly. The asymmetry means an adopter who tries `[ValueObject] struct OrderId { Guid Value }` with both STJ + MessagePack referenced will compile under STJ but hit a `CS1503` under MessagePack (`Guid` has no `string` ctor).
 
-**Why deferred:** V1 spec was int-only; no template currently demands `Guid`-shaped IDs. Surfaces immediately the moment one does. Single-method-table extension; ~5 lines + a snapshot test.
+</details>
 
 ---
 
