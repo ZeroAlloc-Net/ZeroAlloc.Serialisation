@@ -109,12 +109,135 @@ var mpRoundTrip = mpDtoBack is not null
 
 var v2Ok = mpBareInteger && mpRoundTrip;
 
-var ok = v0Ok && v1Ok && v2Ok;
+// V2 underlying-type coverage smoke (shipped 2.4.0): the generator's
+// MessagePackReadWriteForType + SystemTextJsonReadWriteForType switches now
+// cover Guid, DateTime, DateTimeOffset, TimeSpan, decimal, byte[] beyond the
+// bare primitives. Each [ValueObject] fixture below has both an STJ converter
+// and a MessagePack formatter emitted by the generator; we invoke them
+// directly (instead of through JsonSerializerContext / GeneratedMessagePackResolver)
+// so the smoke focuses on the per-type read/write emit shape — without
+// requiring 6 extra [JsonSerializable] entries on ValueObjectDtoContext or
+// 6 extra [MessagePackObject] DTO wrappers. The 2.3.x context/resolver
+// integration paths are already covered by the v1Ok/v2Ok blocks above.
+var underlyingOk = true;
+var underlyingFailures = new System.Collections.Generic.List<string>();
+
+static bool TryStj<T>(System.Text.Json.Serialization.JsonConverter<T> converter, T input, System.Func<T, T, bool> equals, out string failure)
+{
+    failure = "";
+    try
+    {
+        var buf = new ArrayBufferWriter<byte>();
+        using (var w = new System.Text.Json.Utf8JsonWriter(buf))
+        {
+            converter.Write(w, input, new JsonSerializerOptions());
+        }
+        var reader = new System.Text.Json.Utf8JsonReader(buf.WrittenSpan);
+        reader.Read();
+        var back = converter.Read(ref reader, typeof(T), new JsonSerializerOptions());
+        if (!equals(input, back))
+        {
+            failure = $"stj round-trip mismatch for {typeof(T).Name}: wire={System.Text.Encoding.UTF8.GetString(buf.WrittenSpan)}";
+            return false;
+        }
+        return true;
+    }
+    catch (Exception ex)
+    {
+        failure = $"stj threw {ex.GetType().Name} for {typeof(T).Name}: {ex.Message}";
+        return false;
+    }
+}
+
+static bool TryMp<T>(global::MessagePack.Formatters.IMessagePackFormatter<T> formatter, T input, System.Func<T, T, bool> equals, out string failure)
+{
+    failure = "";
+    try
+    {
+        var buf = new ArrayBufferWriter<byte>();
+        var writer = new global::MessagePack.MessagePackWriter(buf);
+        formatter.Serialize(ref writer, input, global::MessagePack.MessagePackSerializerOptions.Standard);
+        writer.Flush();
+        var reader = new global::MessagePack.MessagePackReader(buf.WrittenMemory);
+        var back = formatter.Deserialize(ref reader, global::MessagePack.MessagePackSerializerOptions.Standard);
+        if (!equals(input, back))
+        {
+            failure = $"mp round-trip mismatch for {typeof(T).Name}";
+            return false;
+        }
+        return true;
+    }
+    catch (Exception ex)
+    {
+        failure = $"mp threw {ex.GetType().Name} for {typeof(T).Name}: {ex.Message}";
+        return false;
+    }
+}
+
+// Guid
+{
+    var input = new ValueObjectGuidId(Guid.NewGuid());
+    if (!TryStj(new ValueObjectGuidIdSystemTextJsonConverter(), input, (a, b) => a.Value == b.Value, out var f1))
+    { underlyingOk = false; underlyingFailures.Add(f1); }
+    if (!TryMp(new ValueObjectGuidIdMessagePackFormatter(), input, (a, b) => a.Value == b.Value, out var f2))
+    { underlyingOk = false; underlyingFailures.Add(f2); }
+}
+
+// DateTime
+{
+    var input = new ValueObjectDateTimeId(new DateTime(2026, 6, 10, 12, 34, 56, DateTimeKind.Utc));
+    if (!TryStj(new ValueObjectDateTimeIdSystemTextJsonConverter(), input, (a, b) => a.Value == b.Value, out var f1))
+    { underlyingOk = false; underlyingFailures.Add(f1); }
+    if (!TryMp(new ValueObjectDateTimeIdMessagePackFormatter(), input, (a, b) => a.Value == b.Value, out var f2))
+    { underlyingOk = false; underlyingFailures.Add(f2); }
+}
+
+// DateTimeOffset
+{
+    var input = new ValueObjectDateTimeOffsetId(new DateTimeOffset(2026, 6, 10, 12, 34, 56, TimeSpan.FromHours(2)));
+    if (!TryStj(new ValueObjectDateTimeOffsetIdSystemTextJsonConverter(), input, (a, b) => a.Value == b.Value, out var f1))
+    { underlyingOk = false; underlyingFailures.Add(f1); }
+    if (!TryMp(new ValueObjectDateTimeOffsetIdMessagePackFormatter(), input, (a, b) => a.Value == b.Value, out var f2))
+    { underlyingOk = false; underlyingFailures.Add(f2); }
+}
+
+// TimeSpan
+{
+    var input = new ValueObjectTimeSpanId(TimeSpan.FromMinutes(42.5));
+    if (!TryStj(new ValueObjectTimeSpanIdSystemTextJsonConverter(), input, (a, b) => a.Value == b.Value, out var f1))
+    { underlyingOk = false; underlyingFailures.Add(f1); }
+    if (!TryMp(new ValueObjectTimeSpanIdMessagePackFormatter(), input, (a, b) => a.Value == b.Value, out var f2))
+    { underlyingOk = false; underlyingFailures.Add(f2); }
+}
+
+// decimal
+{
+    var input = new ValueObjectDecimalId(12345.6789m);
+    if (!TryStj(new ValueObjectDecimalIdSystemTextJsonConverter(), input, (a, b) => a.Value == b.Value, out var f1))
+    { underlyingOk = false; underlyingFailures.Add(f1); }
+    if (!TryMp(new ValueObjectDecimalIdMessagePackFormatter(), input, (a, b) => a.Value == b.Value, out var f2))
+    { underlyingOk = false; underlyingFailures.Add(f2); }
+}
+
+// byte[]
+{
+    var input = new ValueObjectBytesId(new byte[] { 1, 2, 3, 4, 5, 42, 99 });
+    if (!TryStj(new ValueObjectBytesIdSystemTextJsonConverter(), input, (a, b) => a.Value.AsSpan().SequenceEqual(b.Value), out var f1))
+    { underlyingOk = false; underlyingFailures.Add(f1); }
+    if (!TryMp(new ValueObjectBytesIdMessagePackFormatter(), input, (a, b) => a.Value.AsSpan().SequenceEqual(b.Value), out var f2))
+    { underlyingOk = false; underlyingFailures.Add(f2); }
+}
+
+var ok = v0Ok && v1Ok && v2Ok && underlyingOk;
 if (!ok)
 {
-    Console.WriteLine($"AOT smoke: FAIL (v0={v0Ok}, v1.resolver={resolverWired}, v1.wire={bareIntegerWire}, v1.roundTrip={roundTrip}, v2.bareInt={mpBareInteger}, v2.roundTrip={mpRoundTrip})");
+    Console.WriteLine($"AOT smoke: FAIL (v0={v0Ok}, v1.resolver={resolverWired}, v1.wire={bareIntegerWire}, v1.roundTrip={roundTrip}, v2.bareInt={mpBareInteger}, v2.roundTrip={mpRoundTrip}, underlying={underlyingOk})");
     Console.WriteLine($"  dtoJson={dtoJson}");
     Console.WriteLine($"  mpJson={mpJson}");
+    foreach (var failure in underlyingFailures)
+    {
+        Console.WriteLine($"  underlying: {failure}");
+    }
     return 1;
 }
 

@@ -45,6 +45,13 @@ internal static class ValueObjectEmitter
         var (readMethod, writeMethod) = SystemTextJsonReadWriteForType(underlying.Type);
         var converterName = $"{typeName}SystemTextJsonConverter";
 
+        // STJ's Utf8JsonWriter has no WriteStringValue(TimeSpan) overload — TimeSpan
+        // round-trips through ToString() / Parse(). For all other underlying types
+        // the native overload accepts the property type directly.
+        var writeArgExpr = string.Equals(underlying.Type.ToDisplayString(), "System.TimeSpan", StringComparison.Ordinal)
+            ? $"value.{underlying.Name}.ToString()"
+            : $"value.{underlying.Name}";
+
         var nsOpen = string.IsNullOrEmpty(ns) ? "" : $"namespace {ns};\n\n";
 
         return $$"""
@@ -66,7 +73,7 @@ internal static class ValueObjectEmitter
                     => new {{typeName}}({{readMethod}});
 
                 public override void Write(Utf8JsonWriter writer, {{typeName}} value, JsonSerializerOptions options)
-                    => writer.{{writeMethod}}(value.{{underlying.Name}});
+                    => writer.{{writeMethod}}({{writeArgExpr}});
             }
 
             """;
@@ -175,7 +182,13 @@ internal static class ValueObjectEmitter
         var ns = type.ContainingNamespace.IsGlobalNamespace ? "" : type.ContainingNamespace.ToDisplayString();
         var typeKindKeyword = type.IsRecord ? "record struct" : "struct";
         var readonlyKeyword = type.IsReadOnly ? "readonly " : "";
-        var (readMethod, _) = MessagePackReadWriteForType(underlying.Type);
+        var (readMethod, writeArgFormat) = MessagePackReadWriteForType(underlying.Type);
+        // WriteArgFormat now carries a full C# statement template (e.g. "writer.Write({0})"
+        // or "MessagePackSerializer.Serialize<T>(ref writer, {0}, options)") — the {0}
+        // placeholder is substituted with the property access. This keeps each switch
+        // arm self-contained so the per-type write path (primitive write vs resolver
+        // dispatch) lives in one place.
+        var writeStatement = string.Format(System.Globalization.CultureInfo.InvariantCulture, writeArgFormat, $"value.{underlying.Name}");
         var formatterName = $"{typeName}MessagePackFormatter";
 
         var nsOpen = string.IsNullOrEmpty(ns) ? "" : $"namespace {ns};\n\n";
@@ -195,7 +208,7 @@ internal static class ValueObjectEmitter
             internal sealed class {{formatterName}} : IMessagePackFormatter<{{typeName}}>
             {
                 public void Serialize(ref MessagePackWriter writer, {{typeName}} value, MessagePackSerializerOptions options)
-                    => writer.Write(value.{{underlying.Name}});
+                    => {{writeStatement}};
 
                 public {{typeName}} Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
                     => new {{typeName}}({{readMethod}});
@@ -348,16 +361,40 @@ internal static class ValueObjectEmitter
 
     private static (string ReadCall, string WriteArgFormat) MessagePackReadWriteForType(ITypeSymbol underlyingType)
     {
+        // WriteArgFormat is a full C# statement template — {0} is substituted with
+        // the property access (e.g. "value.Value"). Primitives use the native
+        // MessagePackWriter.Write(...) overloads; everything else routes through
+        // MessagePackSerializer.Serialize<T>(ref writer, value, options) so the
+        // active resolver's formatter (incl. adopter-registered custom formatters)
+        // is honoured. Symmetric on the read side via Deserialize<T>.
         return underlyingType.SpecialType switch
         {
-            SpecialType.System_Int32   => ("reader.ReadInt32()",   "{0}"),
-            SpecialType.System_Int64   => ("reader.ReadInt64()",   "{0}"),
-            SpecialType.System_Int16   => ("reader.ReadInt16()",   "{0}"),
-            SpecialType.System_Single  => ("reader.ReadSingle()",  "{0}"),
-            SpecialType.System_Double  => ("reader.ReadDouble()",  "{0}"),
-            SpecialType.System_Boolean => ("reader.ReadBoolean()", "{0}"),
-            SpecialType.System_String  => ("reader.ReadString()!", "{0}"),
-            _ => ("reader.ReadString()!", "{0}"),
+            SpecialType.System_Int32   => ("reader.ReadInt32()",   "writer.Write({0})"),
+            SpecialType.System_Int64   => ("reader.ReadInt64()",   "writer.Write({0})"),
+            SpecialType.System_Int16   => ("reader.ReadInt16()",   "writer.Write({0})"),
+            SpecialType.System_Single  => ("reader.ReadSingle()",  "writer.Write({0})"),
+            SpecialType.System_Double  => ("reader.ReadDouble()",  "writer.Write({0})"),
+            SpecialType.System_Boolean => ("reader.ReadBoolean()", "writer.Write({0})"),
+            SpecialType.System_String  => ("reader.ReadString()!", "writer.Write({0})"),
+            SpecialType.System_Decimal
+                => ("MessagePackSerializer.Deserialize<decimal>(ref reader, options)",
+                    "MessagePackSerializer.Serialize<decimal>(ref writer, {0}, options)"),
+            _ when string.Equals(underlyingType.ToDisplayString(), "System.Guid", StringComparison.Ordinal)
+                => ("MessagePackSerializer.Deserialize<global::System.Guid>(ref reader, options)",
+                    "MessagePackSerializer.Serialize<global::System.Guid>(ref writer, {0}, options)"),
+            _ when string.Equals(underlyingType.ToDisplayString(), "System.DateTime", StringComparison.Ordinal)
+                => ("MessagePackSerializer.Deserialize<global::System.DateTime>(ref reader, options)",
+                    "MessagePackSerializer.Serialize<global::System.DateTime>(ref writer, {0}, options)"),
+            _ when string.Equals(underlyingType.ToDisplayString(), "System.DateTimeOffset", StringComparison.Ordinal)
+                => ("MessagePackSerializer.Deserialize<global::System.DateTimeOffset>(ref reader, options)",
+                    "MessagePackSerializer.Serialize<global::System.DateTimeOffset>(ref writer, {0}, options)"),
+            _ when string.Equals(underlyingType.ToDisplayString(), "System.TimeSpan", StringComparison.Ordinal)
+                => ("MessagePackSerializer.Deserialize<global::System.TimeSpan>(ref reader, options)",
+                    "MessagePackSerializer.Serialize<global::System.TimeSpan>(ref writer, {0}, options)"),
+            _ when string.Equals(underlyingType.ToDisplayString(), "byte[]", StringComparison.Ordinal)
+                => ("MessagePackSerializer.Deserialize<byte[]>(ref reader, options)",
+                    "MessagePackSerializer.Serialize<byte[]>(ref writer, {0}, options)"),
+            _ => ("reader.ReadString()!", "writer.Write({0})"),
         };
     }
 
@@ -377,6 +414,17 @@ internal static class ValueObjectEmitter
                 => ("reader.GetGuid()", "WriteStringValue"),
             _ when string.Equals(underlyingType.ToDisplayString(), "System.DateTime", StringComparison.Ordinal)
                 => ("reader.GetDateTime()", "WriteStringValue"),
+            _ when string.Equals(underlyingType.ToDisplayString(), "System.DateTimeOffset", StringComparison.Ordinal)
+                => ("reader.GetDateTimeOffset()", "WriteStringValue"),
+            _ when string.Equals(underlyingType.ToDisplayString(), "System.TimeSpan", StringComparison.Ordinal)
+                // Utf8JsonReader has no GetTimeSpan() pre-.NET 7; TimeSpan.Parse(reader.GetString()!)
+                // is safe and round-trips ISO 8601-ish via value.ToString() on the write side
+                // (handled in EmitSystemTextJsonConverter — there's no WriteStringValue(TimeSpan)
+                // overload either, so we materialise the string explicitly).
+                => ("global::System.TimeSpan.Parse(reader.GetString()!)", "WriteStringValue"),
+            _ when string.Equals(underlyingType.ToDisplayString(), "byte[]", StringComparison.Ordinal)
+                // Base64 string encoding matches STJ's default byte[] wire format.
+                => ("reader.GetBytesFromBase64()", "WriteBase64StringValue"),
             _ => ("reader.GetString()!", "WriteStringValue"), // fallback — let the compiler complain if the user's underlying type doesn't accept this
         };
     }
