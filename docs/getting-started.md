@@ -2,11 +2,10 @@
 
 ## Installation
 
-Install the core interface and generator into your project:
+Install the core package — it carries the source generator with it:
 
 ```bash
 dotnet add package ZeroAlloc.Serialisation
-dotnet add package ZeroAlloc.Serialisation.Generator
 ```
 
 Then add a backend for your chosen serialization format:
@@ -19,12 +18,9 @@ dotnet add package ZeroAlloc.Serialisation.MessagePack
 dotnet add package ZeroAlloc.Serialisation.SystemTextJson
 ```
 
-Add the generator as an analyzer so it produces no runtime dependency:
+That is all you need. Since 2.0, `ZeroAlloc.Serialisation` ships the source generator itself under `analyzers/dotnet/cs/`, so it is wired up automatically and still contributes no runtime dependency.
 
-```xml
-<PackageReference Include="ZeroAlloc.Serialisation.Generator" Version="*"
-                  OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-```
+> **Do not also reference `ZeroAlloc.Serialisation.Generator`.** That package ships the same generator, so referencing both loads it twice and every emitted type is declared twice — `CS0101` on the serializers, `CS0111` on the dispatcher members. It remains published only for consumers who referenced it directly under 1.x. Upgrading from 1.x? See [Migrating 1.x → 2.x](migration-1x-to-2x).
 
 ## Quick Start
 

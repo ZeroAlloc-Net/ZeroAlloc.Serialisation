@@ -81,7 +81,7 @@ The generated `SerializerDispatcher` uses a compile-time switch — no reflectio
 | Package | Description | TFM |
 |---|---|---|
 | `ZeroAlloc.Serialisation` | `ISerializer<T>`, `ISerializerDispatcher`, `ZeroAllocSerializableAttribute` | netstandard2.1, net8–10 |
-| `ZeroAlloc.Serialisation.Generator` | Roslyn source generator | netstandard2.0 |
+| `ZeroAlloc.Serialisation.Generator` | Roslyn source generator — **legacy**, already bundled inside `ZeroAlloc.Serialisation`; referencing both loads it twice | netstandard2.0 |
 | `ZeroAlloc.Serialisation.MemoryPack` | MemoryPack backend | net8–10 |
 | `ZeroAlloc.Serialisation.MessagePack` | MessagePack backend | net8–10 |
 | `ZeroAlloc.Serialisation.SystemTextJson` | System.Text.Json backend | net8–10 |
