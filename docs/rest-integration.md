@@ -8,7 +8,6 @@
 dotnet add package ZeroAlloc.Rest
 dotnet add package ZeroAlloc.Serialisation
 dotnet add package ZeroAlloc.Serialisation.MemoryPack  # or your chosen backend
-dotnet add package ZeroAlloc.Serialisation.Generator
 ```
 
 ## Usage

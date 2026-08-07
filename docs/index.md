@@ -12,7 +12,6 @@ Source-generated, zero-allocation serialization for .NET 8+. Annotate a type —
 
 ```bash
 dotnet add package ZeroAlloc.Serialisation
-dotnet add package ZeroAlloc.Serialisation.Generator
 dotnet add package ZeroAlloc.Serialisation.SystemTextJson  # or MemoryPack / MessagePack
 ```
 
@@ -66,3 +65,4 @@ Given `[ZeroAllocSerializable(SerializationFormat.MemoryPack)]` on a type, the g
 | [Dependency Injection](dependency-injection) | Registration patterns and dispatcher usage |
 | [AOT & Trimming](aot) | Native AOT and IL trimming compatibility |
 | [REST Integration](rest-integration) | Use with ZeroAlloc.Rest |
+| [Migrating 1.x → 2.x](migration-1x-to-2x) | Drop the standalone generator reference — and the two errors if you don't |
