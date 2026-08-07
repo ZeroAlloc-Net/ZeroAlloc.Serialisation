@@ -20,7 +20,7 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.SourceGenerators.Testing.XUnit" Version="1.1.2" />
     <PackageVersion Include="Basic.Reference.Assemblies.Net100" Version="1.8.10" />
     <!-- Benchmarks -->
-    <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
+    <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <!-- Analyzers -->
     <PackageVersion Include="Meziantou.Analyzer" Version="2.0.302" />
     <PackageVersion Include="Roslynator.Analyzers" Version="4.15.0" />
