@@ -18,7 +18,7 @@
     <PackageVersion Include="xunit.runner.visualstudio" Version="2.8.2" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.13.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp.SourceGenerators.Testing.XUnit" Version="1.1.2" />
-    <PackageVersion Include="Basic.Reference.Assemblies.Net100" Version="1.8.4" />
+    <PackageVersion Include="Basic.Reference.Assemblies.Net100" Version="1.8.10" />
     <!-- Benchmarks -->
     <PackageVersion Include="BenchmarkDotNet" Version="0.14.0" />
     <!-- Analyzers -->
