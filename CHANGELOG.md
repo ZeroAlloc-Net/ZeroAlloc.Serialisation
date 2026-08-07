@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.4.0...v2.4.1) (2026-08-07)
+
+
+### Bug Fixes
+
+* **deps:** bump MessagePack 3.1.4 -&gt; 3.1.8 for published security advisories ([#46](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/46)) ([21da7bf](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/21da7bf2ac3d8b3f20c76e58d4f0765bcab1043b))
+
+
+### Documentation
+
+* stop instructing the setup that double-loads the generator ([#45](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/45)) ([d5e700b](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/d5e700bdbddd3e16fd34ffd918b2809d2988c199)), closes [#44](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/44)
+
 ## [2.4.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.3.3...v2.4.0) (2026-06-10)
 
 
