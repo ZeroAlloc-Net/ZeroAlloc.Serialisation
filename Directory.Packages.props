@@ -22,7 +22,7 @@
     <!-- Benchmarks -->
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <!-- Analyzers -->
-    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.192" />
+    <PackageVersion Include="Meziantou.Analyzer" Version="3.0.193" />
     <PackageVersion Include="Roslynator.Analyzers" Version="5.0.0" />
     <PackageVersion Include="ErrorProne.NET.CoreAnalyzers" Version="0.1.2" />
     <PackageVersion Include="ErrorProne.NET.Structs" Version="0.1.2" />
