@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.4.2...v2.4.3) (2026-09-20)
+
+
+### Bug Fixes
+
+* **ci:** pin the SDK floor at the .NET 10 GA band, not the newest patch ([#141](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/141)) ([b93d45a](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/b93d45afdf7990924e488246c6c6f27bf3f970c3))
+
 ## [2.4.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.4.1...v2.4.2) (2026-09-19)
 
 
