@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.4](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.4.3...v2.4.4) (2026-09-20)
+
+
+### Bug Fixes
+
+* pack every src package instead of a hardcoded list ([#145](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/145)) ([c90c753](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/c90c753c9ccecb0fed7b5b2fa267791c32110069))
+
 ## [2.4.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.4.2...v2.4.3) (2026-09-20)
 
 
