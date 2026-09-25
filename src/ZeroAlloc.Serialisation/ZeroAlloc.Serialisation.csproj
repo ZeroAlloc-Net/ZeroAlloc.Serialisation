@@ -15,9 +15,12 @@
   <!--
     The System.Text.Json fallback types are excluded from the netstandard2.1
     TFM (see Compile Remove above), so their public API entries must only
-    apply to the modern TFMs that compile those files.
+    apply to the modern TFMs that compile those files. The shipped half of that
+    pair is PublicAPI.Shipped.modern.txt; the release-please ship step moves the
+    modern Unshipped entries there, not into PublicAPI.Shipped.txt.
   -->
   <ItemGroup Condition="'$(TargetFramework)' != 'netstandard2.1'">
+    <AdditionalFiles Include="PublicAPI.Shipped.modern.txt" />
     <AdditionalFiles Include="PublicAPI.Unshipped.modern.txt" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
