@@ -8,14 +8,14 @@
     <PublishAot>true</PublishAot>
     <InvariantGlobalization>true</InvariantGlobalization>
     <!--
-      Override Directory.Build.props's blanket TreatWarningsAsErrors=true:
-      third-party dependencies (MemoryPack.Core, MessagePack) emit assembly-
-      level IL2104 / IL3053 roll-ups that we can't fix from inside this repo.
-      Instead, promote only the per-call trim/AOT warning codes to errors —
-      these are the ones the generator is responsible for suppressing.
+      Keep Directory.Build.props's blanket TreatWarningsAsErrors=true so ordinary
+      C#/analyzer warnings in this sample (e.g. CS8604, MA0048) fail the build like
+      everywhere else in the repo (#164). Only the two IL codes below are excluded:
+      they are assembly-level rollup warnings that `dotnet publish -p:PublishAot=true`
+      raises against MemoryPack.Core's and MessagePack's own published binaries, not
+      against anything this repo emits, so there is nothing here to fix them with.
     -->
-    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
-    <WarningsAsErrors>$(WarningsAsErrors);IL2026;IL2067;IL2075;IL2091;IL3050;IL3051</WarningsAsErrors>
+    <WarningsNotAsErrors>$(WarningsNotAsErrors);IL2104;IL3053</WarningsNotAsErrors>
     <!-- Keep the binary small so PublishAot smoke finishes quickly -->
     <OptimizationPreference>Size</OptimizationPreference>
   </PropertyGroup>

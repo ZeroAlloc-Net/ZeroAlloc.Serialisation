@@ -135,6 +135,11 @@ static bool TryStj<T>(System.Text.Json.Serialization.JsonConverter<T> converter,
         var reader = new System.Text.Json.Utf8JsonReader(buf.WrittenSpan);
         reader.Read();
         var back = converter.Read(ref reader, typeof(T), new JsonSerializerOptions());
+        if (back is null)
+        {
+            failure = $"stj round-trip returned null for {typeof(T).Name}";
+            return false;
+        }
         if (!equals(input, back))
         {
             failure = $"stj round-trip mismatch for {typeof(T).Name}: wire={System.Text.Encoding.UTF8.GetString(buf.WrittenSpan)}";
