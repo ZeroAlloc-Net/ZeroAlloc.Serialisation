@@ -5,6 +5,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
     <!--
       Lock the public API surface: RS0016 (undeclared public symbol) and
       RS0017 (declared symbol no longer present) must always fail the build,
@@ -37,7 +38,5 @@
   <ItemGroup Condition="'$(IsRoslynComponent)' != 'true'">
     <PackageReference Include="Meziantou.Analyzer" PrivateAssets="all" />
     <PackageReference Include="Roslynator.Analyzers" PrivateAssets="all" />
-    <PackageReference Include="ErrorProne.NET.CoreAnalyzers" PrivateAssets="all" />
-    <PackageReference Include="ErrorProne.NET.Structs" PrivateAssets="all" />
   </ItemGroup>
 </Project>
