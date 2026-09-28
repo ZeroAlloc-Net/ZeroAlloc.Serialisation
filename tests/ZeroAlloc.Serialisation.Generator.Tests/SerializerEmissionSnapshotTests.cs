@@ -46,7 +46,7 @@ public sealed class SerializerEmissionSnapshotTests
 
         {{TrimSuppress}}
         {{AotSuppress}}
-            public Demo.MpBasic? Deserialize(ReadOnlySpan<byte> buffer)
+            public Demo.MpBasic? Deserialize(global::System.ReadOnlySpan<byte> buffer)
             {
                 if (buffer.IsEmpty) return default;
                 return global::MemoryPack.MemoryPackSerializer.Deserialize<Demo.MpBasic>(buffer);
@@ -76,7 +76,7 @@ public sealed class SerializerEmissionSnapshotTests
 
         {{TrimSuppress}}
         {{AotSuppress}}
-            public Demo.MpRec? Deserialize(ReadOnlySpan<byte> buffer)
+            public Demo.MpRec? Deserialize(global::System.ReadOnlySpan<byte> buffer)
             {
                 if (buffer.IsEmpty) return default;
                 return global::MemoryPack.MemoryPackSerializer.Deserialize<Demo.MpRec>(buffer);
@@ -108,7 +108,7 @@ public sealed class SerializerEmissionSnapshotTests
 
         {{TrimSuppress}}
         {{AotSuppress}}
-            public Demo.MsgpBasic? Deserialize(ReadOnlySpan<byte> buffer)
+            public Demo.MsgpBasic? Deserialize(global::System.ReadOnlySpan<byte> buffer)
             {
                 if (buffer.IsEmpty) return default;
                 // MessagePack 3.x has no Deserialize(ReadOnlySpan<byte>) overload — it requires ReadOnlySequence<byte>.
@@ -140,7 +140,7 @@ public sealed class SerializerEmissionSnapshotTests
 
         {{TrimSuppress}}
         {{AotSuppress}}
-            public Demo.MsgpRec? Deserialize(ReadOnlySpan<byte> buffer)
+            public Demo.MsgpRec? Deserialize(global::System.ReadOnlySpan<byte> buffer)
             {
                 if (buffer.IsEmpty) return default;
                 // MessagePack 3.x has no Deserialize(ReadOnlySpan<byte>) overload — it requires ReadOnlySequence<byte>.
@@ -171,7 +171,7 @@ public sealed class SerializerEmissionSnapshotTests
                 global::System.Text.Json.JsonSerializer.Serialize(_jw, value, global::Demo.StjBasicContext.Default.StjBasic);
             }
 
-            public Demo.StjBasic? Deserialize(ReadOnlySpan<byte> buffer)
+            public Demo.StjBasic? Deserialize(global::System.ReadOnlySpan<byte> buffer)
             {
                 if (buffer.IsEmpty) return default;
                 return global::System.Text.Json.JsonSerializer.Deserialize(buffer, global::Demo.StjBasicContext.Default.StjBasic);
@@ -198,7 +198,7 @@ public sealed class SerializerEmissionSnapshotTests
                 global::System.Text.Json.JsonSerializer.Serialize(_jw, value, global::Demo.StjRecContext.Default.StjRec);
             }
 
-            public Demo.StjRec? Deserialize(ReadOnlySpan<byte> buffer)
+            public Demo.StjRec? Deserialize(global::System.ReadOnlySpan<byte> buffer)
             {
                 if (buffer.IsEmpty) return default;
                 return global::System.Text.Json.JsonSerializer.Deserialize(buffer, global::Demo.StjRecContext.Default.StjRec);

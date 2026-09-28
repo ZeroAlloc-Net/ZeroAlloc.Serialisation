@@ -8,6 +8,7 @@ internal sealed record SerializerModel(
     string TypeName,
     string FullTypeName,
     string FormatName,  // "MemoryPack" | "MessagePack" | "SystemTextJson"
+    bool IsValueType,
     StjContextBinding? StjContext = null
 );
 
