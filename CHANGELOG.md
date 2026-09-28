@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.6](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.4.5...v2.4.6) (2026-09-28)
+
+
+### Bug Fixes
+
+* generate compilable serializers for struct types ([04f5bf9](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/04f5bf99b06d92edb9c39910e85d6d06d491bfe2))
+* report ZASZ diagnostics at a source location that #pragma can suppress ([#174](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/174)) ([a954af5](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/a954af54135b1b3bc5eb1a7868ad4d25d4cd4766))
+* resolve MessagePack formatters for nullable value objects under NativeAOT ([04f5bf9](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/04f5bf99b06d92edb9c39910e85d6d06d491bfe2))
+
+
+### Documentation
+
+* pass the content type to RestSerializerAdapter in the REST snippet ([#168](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/168)) ([b90a46d](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/b90a46d8521a24bd756f5a59a876ca6d557495a7))
+* update REST integration for Rest 3.0, RestSerializerAdapter removed ([#171](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/171)) ([ee45e46](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/ee45e4657cb1a7fd98740a7004a3eab2dfb05fa1)), closes [#170](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/170)
+
 ## [2.4.5](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.4.4...v2.4.5) (2026-09-26)
 
 
