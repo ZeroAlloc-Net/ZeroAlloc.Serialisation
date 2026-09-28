@@ -262,6 +262,12 @@ internal static class ValueObjectEmitter
             var formatterFqn = BuildFormatterFqn(type);
             sb.AppendLine($"        if (type == typeof({typeFqn}))");
             sb.AppendLine($"            return new {formatterFqn}();");
+            // Nullable<VO> members make MessagePack ask for a formatter of the nullable type.
+            // Without this arm the lookup falls through to DynamicGenericResolver, which builds
+            // NullableFormatter<VO> by reflection; NativeAOT never compiled that instantiation,
+            // so it throws MissingMethodException. A closed, statically referenced wrapper does not.
+            sb.AppendLine($"        if (type == typeof(global::System.Nullable<{typeFqn}>))");
+            sb.AppendLine($"            return new global::MessagePack.Formatters.StaticNullableFormatter<{typeFqn}>(new {formatterFqn}());");
         }
         sb.AppendLine("        return null;");
         sb.AppendLine("    }");

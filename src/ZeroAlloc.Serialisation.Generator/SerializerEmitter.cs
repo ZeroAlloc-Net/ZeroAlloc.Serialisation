@@ -31,6 +31,13 @@ internal static class SerializerEmitter
                 $"Unknown format '{model.FormatName}'; a ZASZ002 diagnostic should have suppressed emission. This indicates a generator bug."),
         };
 
+        // ISerializer<T>.Deserialize returns an unconstrained T?, which for a value type is T itself,
+        // not Nullable<T>. Emitting "X?" for a struct would declare Nullable<X> and fail to implement
+        // the interface, so only reference types carry the nullable annotation.
+        var deserializeReturnType = model.IsValueType
+            ? model.FullTypeName
+            : model.FullTypeName + "?";
+
         var ns = string.IsNullOrEmpty(model.Namespace)
             ? ""
             : $"namespace {model.Namespace};\n\n";
@@ -59,7 +66,7 @@ internal static class SerializerEmitter
                     {{serializerCall}}
                 }
 
-            {{suppressAttrs}}    public {{model.FullTypeName}}? Deserialize(ReadOnlySpan<byte> buffer)
+            {{suppressAttrs}}    public {{deserializeReturnType}} Deserialize(global::System.ReadOnlySpan<byte> buffer)
                 {
                     if (buffer.IsEmpty) return default;
                     {{deserializeCall}}

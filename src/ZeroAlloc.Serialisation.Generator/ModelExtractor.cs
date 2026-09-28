@@ -97,7 +97,8 @@ internal static class ModelExtractor
             Namespace: ns,
             TypeName: typeSymbol.Name,
             FullTypeName: typeSymbol.ToDisplayString(),
-            FormatName: formatName);
+            FormatName: formatName,
+            IsValueType: typeSymbol.IsValueType);
 
         return new SerializerExtractionResult(model, diagnostics.ToImmutable());
     }

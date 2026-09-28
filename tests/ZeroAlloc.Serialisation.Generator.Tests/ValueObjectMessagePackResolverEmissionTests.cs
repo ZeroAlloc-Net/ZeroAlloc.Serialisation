@@ -73,6 +73,38 @@ public class ValueObjectMessagePackResolverEmissionTests
     }
 
     [Fact]
+    public void Resolver_EmitsNullableArm_WrappingEachFormatterInStaticNullableFormatter()
+    {
+        // Nullable<VO> members make MessagePack ask for a formatter of the nullable type.
+        // The resolver must answer with a closed StaticNullableFormatter so NativeAOT never
+        // needs MessagePack's reflection-built NullableFormatter<VO>.
+        var source = """
+            using ZeroAlloc.ValueObjects;
+            namespace TestModels;
+
+            [ValueObject]
+            public readonly partial struct CustomerId
+            {
+                public int Value { get; }
+                public CustomerId(int value) => Value = value;
+            }
+            """;
+
+        var result = RunGenerator(source, withMessagePack: true);
+
+        Assert.Empty(result.Diagnostics);
+        var text = result.GeneratedTrees
+            .Single(t => t.FilePath.EndsWith("ValueObjectMessagePackResolverExtensions.g.cs", StringComparison.Ordinal))
+            .ToString();
+
+        Assert.Contains("if (type == typeof(global::System.Nullable<global::TestModels.CustomerId>))", text, StringComparison.Ordinal);
+        Assert.Contains(
+            "return new global::MessagePack.Formatters.StaticNullableFormatter<global::TestModels.CustomerId>(new global::TestModels.CustomerIdMessagePackFormatter());",
+            text,
+            StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void Resolver_NotEmitted_WhenNoValueObjectsPresent()
     {
         var source = """

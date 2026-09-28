@@ -233,15 +233,161 @@ static bool TryMp<T>(global::MessagePack.Formatters.IMessagePackFormatter<T> for
     { underlyingOk = false; underlyingFailures.Add(f2); }
 }
 
-var ok = v0Ok && v1Ok && v2Ok && underlyingOk;
+// Value-type coverage (ZeroAlloc-Net/ZeroAlloc.Cache#182, dotnet/runtime#134799):
+// NativeAOT miscompiles some generic paths only when T is a value type, in
+// particular Nullable<X>. Every block below drives a user-reachable generic or
+// type-dispatch path with a struct or nullable shape and asserts the values.
+var valueTypeFailures = new System.Collections.Generic.List<string>();
+
+static string Utf8(ReadOnlySpan<byte> bytes) => System.Text.Encoding.UTF8.GetString(bytes);
+
+// Struct [ZeroAllocSerializable] in all three formats, through the generated
+// XSerializer and through the generated SerializerDispatcher.
+var dispatcher = new SerializerDispatcher();
+try
+{
+    var stjStruct = new StjStructMessage(7, "seven");
+    var stjStructBuf = new ArrayBufferWriter<byte>();
+    new StjStructMessageSerializer().Serialize(stjStructBuf, stjStruct);
+    var stjStructJson = Utf8(stjStructBuf.WrittenSpan);
+    if (!string.Equals(stjStructJson, "{\"A\":7,\"B\":\"seven\"}", StringComparison.Ordinal))
+        valueTypeFailures.Add($"stj struct wire={stjStructJson}");
+    var stjStructBack = new StjStructMessageSerializer().Deserialize(stjStructBuf.WrittenSpan);
+    if (stjStructBack != stjStruct)
+        valueTypeFailures.Add($"stj struct round-trip={stjStructBack}");
+    var stjStructDisp = dispatcher.Serialize(stjStruct, typeof(StjStructMessage));
+    if (!string.Equals(Utf8(stjStructDisp.Span), stjStructJson, StringComparison.Ordinal))
+        valueTypeFailures.Add($"stj struct dispatcher wire={Utf8(stjStructDisp.Span)}");
+    if (dispatcher.Deserialize(stjStructDisp, typeof(StjStructMessage)) is not StjStructMessage stjStructDispBack
+        || stjStructDispBack != stjStruct)
+        valueTypeFailures.Add("stj struct dispatcher round-trip mismatch");
+
+    var mpStruct = new MpStructMessage(8, "eight");
+    var mpStructBuf = new ArrayBufferWriter<byte>();
+    new MpStructMessageSerializer().Serialize(mpStructBuf, mpStruct);
+    var mpStructBack = new MpStructMessageSerializer().Deserialize(mpStructBuf.WrittenSpan);
+    if (mpStructBack != mpStruct)
+        valueTypeFailures.Add($"memorypack struct round-trip={mpStructBack}");
+    var mpStructDisp = dispatcher.Serialize(mpStruct, typeof(MpStructMessage));
+    if (!mpStructDisp.Span.SequenceEqual(mpStructBuf.WrittenSpan))
+        valueTypeFailures.Add("memorypack struct dispatcher bytes differ from serializer bytes");
+    if (dispatcher.Deserialize(mpStructDisp, typeof(MpStructMessage)) is not MpStructMessage mpStructDispBack
+        || mpStructDispBack != mpStruct)
+        valueTypeFailures.Add("memorypack struct dispatcher round-trip mismatch");
+
+    var msgpStruct = new MsgpStructMessage(9, "nine");
+    var msgpStructBuf = new ArrayBufferWriter<byte>();
+    new MsgpStructMessageSerializer().Serialize(msgpStructBuf, msgpStruct);
+    var msgpStructJson = global::MessagePack.MessagePackSerializer.ConvertToJson(msgpStructBuf.WrittenMemory);
+    if (!string.Equals(msgpStructJson, "[9,\"nine\"]", StringComparison.Ordinal))
+        valueTypeFailures.Add($"messagepack struct wire={msgpStructJson}");
+    var msgpStructBack = new MsgpStructMessageSerializer().Deserialize(msgpStructBuf.WrittenSpan);
+    if (msgpStructBack != msgpStruct)
+        valueTypeFailures.Add($"messagepack struct round-trip={msgpStructBack}");
+    var msgpStructDisp = dispatcher.Serialize(msgpStruct, typeof(MsgpStructMessage));
+    if (!msgpStructDisp.Span.SequenceEqual(msgpStructBuf.WrittenSpan))
+        valueTypeFailures.Add("messagepack struct dispatcher bytes differ from serializer bytes");
+    if (dispatcher.Deserialize(msgpStructDisp, typeof(MsgpStructMessage)) is not MsgpStructMessage msgpStructDispBack
+        || msgpStructDispBack != msgpStruct)
+        valueTypeFailures.Add("messagepack struct dispatcher round-trip mismatch");
+}
+catch (Exception ex)
+{
+    valueTypeFailures.Add($"struct serializers threw {ex.GetType().Name}: {ex.Message}");
+}
+
+// Nullable [ValueObject] member under STJ source-gen: value and null.
+try
+{
+    var withId = new ValueObjectNullableDto(new ValueObjectId(42), "alpha");
+    var withIdJson = JsonSerializer.Serialize(withId, customContext.ValueObjectNullableDto);
+    if (!string.Equals(withIdJson, "{\"Id\":42,\"Label\":\"alpha\"}", StringComparison.Ordinal))
+        valueTypeFailures.Add($"stj nullable VO wire={withIdJson}");
+    var withIdBack = JsonSerializer.Deserialize(withIdJson, customContext.ValueObjectNullableDto);
+    if (withIdBack is null || withIdBack.Id?.Value != 42 || !string.Equals(withIdBack.Label, "alpha", StringComparison.Ordinal))
+        valueTypeFailures.Add($"stj nullable VO round-trip={withIdBack}");
+
+    var noId = new ValueObjectNullableDto(null, "beta");
+    var noIdJson = JsonSerializer.Serialize(noId, customContext.ValueObjectNullableDto);
+    if (!string.Equals(noIdJson, "{\"Id\":null,\"Label\":\"beta\"}", StringComparison.Ordinal))
+        valueTypeFailures.Add($"stj null VO wire={noIdJson}");
+    var noIdBack = JsonSerializer.Deserialize(noIdJson, customContext.ValueObjectNullableDto);
+    if (noIdBack is null || noIdBack.Id is not null || !string.Equals(noIdBack.Label, "beta", StringComparison.Ordinal))
+        valueTypeFailures.Add($"stj null VO round-trip={noIdBack}");
+}
+catch (Exception ex)
+{
+    valueTypeFailures.Add($"stj nullable VO threw {ex.GetType().Name}: {ex.Message}");
+}
+
+// Nullable [ValueObject] member under MessagePack source-gen: the emitted resolver's
+// FormatterCache<T> is instantiated with T = Nullable<ValueObjectMpId>.
+try
+{
+    var withId = new ValueObjectMpNullableDto { Id = new ValueObjectMpId(42), Label = "alpha" };
+    var withIdBytes = global::MessagePack.MessagePackSerializer.Serialize(withId, mpOptions);
+    var withIdJson = global::MessagePack.MessagePackSerializer.ConvertToJson(withIdBytes);
+    if (!string.Equals(withIdJson, "[42,\"alpha\"]", StringComparison.Ordinal))
+        valueTypeFailures.Add($"messagepack nullable VO wire={withIdJson}");
+    var withIdBack = global::MessagePack.MessagePackSerializer.Deserialize<ValueObjectMpNullableDto>(withIdBytes, mpOptions);
+    if (withIdBack is null || withIdBack.Id?.Value != 42 || !string.Equals(withIdBack.Label, "alpha", StringComparison.Ordinal))
+        valueTypeFailures.Add("messagepack nullable VO round-trip mismatch");
+
+    var noId = new ValueObjectMpNullableDto { Id = null, Label = "beta" };
+    var noIdBytes = global::MessagePack.MessagePackSerializer.Serialize(noId, mpOptions);
+    var noIdJson = global::MessagePack.MessagePackSerializer.ConvertToJson(noIdBytes);
+    if (!string.Equals(noIdJson, "[null,\"beta\"]", StringComparison.Ordinal))
+        valueTypeFailures.Add($"messagepack null VO wire={noIdJson}");
+    var noIdBack = global::MessagePack.MessagePackSerializer.Deserialize<ValueObjectMpNullableDto>(noIdBytes, mpOptions);
+    if (noIdBack is null || noIdBack.Id is not null || !string.Equals(noIdBack.Label, "beta", StringComparison.Ordinal))
+        valueTypeFailures.Add("messagepack null VO round-trip mismatch");
+}
+catch (Exception ex)
+{
+    valueTypeFailures.Add($"messagepack nullable VO threw {ex.GetType().Name}: {ex.Message}");
+}
+
+// SystemTextJsonSerializer<T> with T = int?: value round-trip, and the empty-buffer
+// short-circuit returning default, which for Nullable<int> is null.
+try
+{
+    ISerializer<int?> nullableInt = new SystemTextJsonSerializer<int?>(NullableIntContext.Default.NullableInt32);
+    var intBuf = new ArrayBufferWriter<byte>();
+    nullableInt.Serialize(intBuf, 5);
+    var intJson = Utf8(intBuf.WrittenSpan);
+    if (!string.Equals(intJson, "5", StringComparison.Ordinal))
+        valueTypeFailures.Add($"stj int? wire={intJson}");
+    var intBack = nullableInt.Deserialize(intBuf.WrittenSpan);
+    if (intBack != 5)
+        valueTypeFailures.Add($"stj int? round-trip={intBack}");
+    var intEmpty = nullableInt.Deserialize(ReadOnlySpan<byte>.Empty);
+    if (intEmpty is not null)
+        valueTypeFailures.Add($"stj int? empty buffer={intEmpty}");
+}
+catch (Exception ex)
+{
+    valueTypeFailures.Add($"stj int? threw {ex.GetType().Name}: {ex.Message}");
+}
+
+var valueTypesOk = valueTypeFailures.Count == 0;
+if (valueTypesOk)
+{
+    Console.WriteLine("AOT smoke: value types OK (struct serializers x3 + dispatcher, nullable VO STJ + MessagePack, SystemTextJsonSerializer<int?>)");
+}
+
+var ok = v0Ok && v1Ok && v2Ok && underlyingOk && valueTypesOk;
 if (!ok)
 {
-    Console.WriteLine($"AOT smoke: FAIL (v0={v0Ok}, v1.resolver={resolverWired}, v1.wire={bareIntegerWire}, v1.roundTrip={roundTrip}, v2.bareInt={mpBareInteger}, v2.roundTrip={mpRoundTrip}, underlying={underlyingOk})");
+    Console.WriteLine($"AOT smoke: FAIL (v0={v0Ok}, v1.resolver={resolverWired}, v1.wire={bareIntegerWire}, v1.roundTrip={roundTrip}, v2.bareInt={mpBareInteger}, v2.roundTrip={mpRoundTrip}, underlying={underlyingOk}, valueTypes={valueTypesOk})");
     Console.WriteLine($"  dtoJson={dtoJson}");
     Console.WriteLine($"  mpJson={mpJson}");
     foreach (var failure in underlyingFailures)
     {
         Console.WriteLine($"  underlying: {failure}");
+    }
+    foreach (var failure in valueTypeFailures)
+    {
+        Console.WriteLine($"  valueTypes: {failure}");
     }
     return 1;
 }

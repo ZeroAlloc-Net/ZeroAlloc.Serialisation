@@ -130,7 +130,7 @@ var options = MessagePackSerializerOptions.Standard
     .AddZeroAllocValueObjectFormatters();
 ```
 
-`AddZeroAllocValueObjectFormatters` is generated per assembly that declares `[ValueObject]` types — it prepends a `ValueObjectMessagePackResolver` to the composite chain. The resolver returns our generator-emitted formatter for value-object types; for all other types it returns null and `CompositeResolver` falls through to the user's resolver (typically `GeneratedMessagePackResolver` or `StandardResolver`).
+`AddZeroAllocValueObjectFormatters` is generated per assembly that declares `[ValueObject]` types — it prepends a `ValueObjectMessagePackResolver` to the composite chain. The resolver returns our generator-emitted formatter for value-object types, and a `StaticNullableFormatter` around it for nullable value-object members, so NativeAOT never needs MessagePack's reflection-built `NullableFormatter<T>`; for all other types it returns null and `CompositeResolver` falls through to the user's resolver (typically `GeneratedMessagePackResolver` or `StandardResolver`).
 
 **Call order matters.** `AddZeroAllocValueObjectFormatters` prepends our resolver to whatever `options.Resolver` was set to. Call it AFTER setting your primary resolver via `WithResolver`. Calling in the wrong order leaves the user's resolver wrapping ours, which inverts precedence — value-object lookups hit the source-gen resolver first and produce the wrong wire format.
 

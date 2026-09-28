@@ -29,6 +29,42 @@ public class ValueObjectMessagePackSourceGenRoundTripTests
         Assert.Equal(dto.Id.Value, roundTripped.Id.Value);
         Assert.Equal(dto.Label, roundTripped.Label);
     }
+
+    [Fact]
+    public void NullableValueObject_IsServedByZeroAllocResolver_NotReflectionBuiltFormatter()
+    {
+        // Under NativeAOT, MessagePack's DynamicGenericResolver cannot build
+        // NullableFormatter<VO> by reflection. The ZeroAlloc resolver must answer the
+        // Nullable<VO> lookup itself with a closed StaticNullableFormatter.
+        var options = MessagePackSerializerOptions.Standard
+            .AddZeroAllocValueObjectFormatters();
+
+        var formatter = options.Resolver.GetFormatter<TestMpValueObjectId?>();
+
+        Assert.IsType<global::MessagePack.Formatters.StaticNullableFormatter<TestMpValueObjectId>>(formatter);
+    }
+
+    [Theory]
+    [InlineData(42, "[42,\"alpha\"]")]
+    [InlineData(null, "[null,\"alpha\"]")]
+    public void Dto_WithNullableValueObjectField_RoundTrips(int? id, string expectedJson)
+    {
+        var options = MessagePackSerializerOptions.Standard
+            .AddZeroAllocValueObjectFormatters();
+
+        var dto = new TestMpNullableDto
+        {
+            Id = id is { } v ? new TestMpValueObjectId(v) : null,
+            Label = "alpha",
+        };
+        var bytes = MessagePackSerializer.Serialize(dto, options);
+
+        Assert.Equal(expectedJson, MessagePackSerializer.ConvertToJson(bytes));
+
+        var roundTripped = MessagePackSerializer.Deserialize<TestMpNullableDto>(bytes, options);
+        Assert.Equal(id, roundTripped.Id?.Value);
+        Assert.Equal("alpha", roundTripped.Label);
+    }
 }
 
 [global::ZeroAlloc.ValueObjects.ValueObject]
@@ -42,5 +78,12 @@ public readonly partial struct TestMpValueObjectId
 public sealed partial class TestMpDto
 {
     [Key(0)] public TestMpValueObjectId Id { get; set; }
+    [Key(1)] public string Label { get; set; } = "";
+}
+
+[MessagePackObject]
+public sealed partial class TestMpNullableDto
+{
+    [Key(0)] public TestMpValueObjectId? Id { get; set; }
     [Key(1)] public string Label { get; set; } = "";
 }

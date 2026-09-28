@@ -55,6 +55,9 @@ jobs:
 
   aot-smoke:
     runs-on: ubuntu-latest
+    # Typical run is about one minute. The cap keeps a NativeAOT hang from holding a
+    # runner for the six-hour default.
+    timeout-minutes: 15
     # ubuntu-latest is fine for Native AOT on net10.0 — no cross-compile needed.
     # This job verifies that the generator-emitted code is actually AOT-safe under
     # a real `dotnet publish -p:PublishAot=true`. Publish-time IL analysis is
@@ -90,7 +93,9 @@ jobs:
             -o ./aot-out
 
       - name: Run AOT binary
-        run: ./aot-out/ZeroAlloc.Serialisation.AotSmoke
+        # A NativeAOT miscompile can hang instead of throwing, as in dotnet/runtime#134799.
+        # timeout exits 124 on a hang, so the step fails fast with a clear signal.
+        run: timeout --kill-after=10s 120s ./aot-out/ZeroAlloc.Serialisation.AotSmoke
 
   # A release PR must mark everything it releases as shipped: the analyzer rules in
   # AnalyzerReleases.Unshipped.md and the API in every PublicAPI.Unshipped.txt. The
