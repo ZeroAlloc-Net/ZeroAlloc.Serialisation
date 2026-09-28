@@ -23,7 +23,8 @@ public sealed class SerializerGenerator : IIncrementalGenerator
                     node is TypeDeclarationSyntax,
                 transform: static (ctx, ct) => ModelExtractor.Extract(ctx, ct))
             .Where(static r => r is not null)
-            .Select(static (r, _) => r!);
+            .Select(static (r, _) => r!)
+            .WithTrackingName(TrackingNames.ExtractionResults);
 
         // Separate pipeline: collect every [JsonSerializable(typeof(T))] on a
         // JsonSerializerContext-derived class. Flattened to a single array so
@@ -33,21 +34,23 @@ public sealed class SerializerGenerator : IIncrementalGenerator
                 JsonSerializableAttrFullName,
                 predicate: static (node, _) => node is ClassDeclarationSyntax,
                 transform: static (ctx, ct) => ModelExtractor.ExtractContextEntries(ctx, ct))
-            .Where(static entries => !entries.IsDefaultOrEmpty)
+            .Where(static entries => !entries.IsEmpty)
             .Collect()
             .Select(static (perClass, _) =>
             {
                 var builder = ImmutableArray.CreateBuilder<Models.StjContextEntry>();
                 foreach (var arr in perClass)
                 {
-                    builder.AddRange(arr);
+                    builder.AddRange(arr.ToArray());
                 }
-                return builder.ToImmutable();
-            });
+                return new Models.EquatableArray<Models.StjContextEntry>(builder.ToArray());
+            })
+            .WithTrackingName(TrackingNames.StjContextEntries);
 
         var results = rawResults
             .Combine(flattenedContextEntries)
-            .Select(static (pair, _) => ModelExtractor.JoinWithContextMap(pair.Left, pair.Right));
+            .Select(static (pair, _) => ModelExtractor.JoinWithContextMap(pair.Left, pair.Right))
+            .WithTrackingName(TrackingNames.BoundResults);
 
         // Report diagnostics (errors + warnings) for every extraction result.
         context.RegisterSourceOutput(results, static (ctx, result) =>
@@ -61,7 +64,8 @@ public sealed class SerializerGenerator : IIncrementalGenerator
         // Only emit code for results that produced a valid model (i.e. no blocking errors).
         var models = results
             .Where(static r => r.Model is not null)
-            .Select(static (r, _) => r.Model!);
+            .Select(static (r, _) => r.Model!)
+            .WithTrackingName(TrackingNames.Models);
 
         // Emit one serializer + DI extension per annotated type
         context.RegisterSourceOutput(models, static (ctx, model) =>
@@ -71,10 +75,10 @@ public sealed class SerializerGenerator : IIncrementalGenerator
         });
 
         // Emit one dispatcher covering ALL annotated types in the assembly
-        var allModels = models.Collect();
-        context.RegisterSourceOutput(allModels, static (ctx, allModels) =>
+        var allModels = models.Collect().WithTrackingName(TrackingNames.AllModels);
+        context.RegisterSourceOutput(allModels, static (ctx, all) =>
         {
-            DispatcherEmitter.Emit(ctx, allModels);
+            DispatcherEmitter.Emit(ctx, all);
         });
 
         // V1: parallel discovery pass for [ZeroAlloc.ValueObjects.ValueObject]

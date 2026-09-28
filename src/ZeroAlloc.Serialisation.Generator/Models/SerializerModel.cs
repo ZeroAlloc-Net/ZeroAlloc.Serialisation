@@ -1,5 +1,5 @@
-using System.Collections.Immutable;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Text;
 
 namespace ZeroAlloc.Serialisation.Generator.Models;
 
@@ -31,9 +31,14 @@ internal sealed record StjContextEntry(string TargetFullName, string ContextFull
 /// When diagnostics contain an error, <paramref name="Model"/> is null and no code should be emitted;
 /// warnings may appear alongside a valid model.
 /// </summary>
+/// <param name="AttributeLocation">
+/// The <c>[ZeroAllocSerializable]</c> attribute, where a diagnostic found after extraction, ZASZ004,
+/// is reported.
+/// </param>
 internal sealed record SerializerExtractionResult(
     SerializerModel? Model,
-    ImmutableArray<DiagnosticInfo> Diagnostics);
+    LocationInfo AttributeLocation,
+    EquatableArray<DiagnosticInfo> Diagnostics);
 
 /// <summary>
 /// Equatable, location-describing diagnostic payload that can cross the incremental pipeline boundary
@@ -41,52 +46,38 @@ internal sealed record SerializerExtractionResult(
 /// </summary>
 internal sealed record DiagnosticInfo(
     DiagnosticDescriptor Descriptor,
-    LocationInfo? Location,
+    LocationInfo Location,
     EquatableArray<string> MessageArgs)
 {
     public Diagnostic ToDiagnostic()
-        => Diagnostic.Create(Descriptor, Location?.ToLocation(), MessageArgs.ToArray());
+        => Diagnostic.Create(Descriptor, Location.ToLocation(), MessageArgs.ToArray());
 }
 
 /// <summary>
-/// Serializable, value-equatable location reference. Avoids pulling <see cref="Location"/> directly
-/// through the incremental pipeline (Location is not equatable in a way Roslyn caches well).
+/// A diagnostic location the pipeline can cache: the syntax tree and the span within it.
 /// </summary>
-internal sealed record LocationInfo(string FilePath, TextSpanInfo TextSpan, LinePositionSpanInfo LineSpan)
+/// <remarks>
+/// <para>
+/// The tree is kept, not just its file path, because the rebuilt diagnostic must be a source
+/// location. <c>Location.Create(filePath, span, lineSpan)</c> gives an external-file location
+/// with no <see cref="Location.SourceTree"/>, and the compiler then ignores
+/// <c>#pragma warning disable</c> and per-file severity settings for it.
+/// </para>
+/// <para>
+/// Keeping the tree does not defeat caching. <see cref="SyntaxTree"/> compares by reference, and
+/// a compilation reuses the tree instance of every file that did not change, so the location
+/// compares equal across runs until its own file is edited, when the model is rebuilt anyway. A
+/// tree belongs to no one compilation, and only the tree of the latest run is held.
+/// </para>
+/// </remarks>
+internal sealed record LocationInfo(SyntaxTree Tree, TextSpan Span)
 {
-    public Location ToLocation()
-        => Location.Create(
-            FilePath,
-            new Microsoft.CodeAnalysis.Text.TextSpan(TextSpan.Start, TextSpan.Length),
-            new Microsoft.CodeAnalysis.Text.LinePositionSpan(
-                new Microsoft.CodeAnalysis.Text.LinePosition(LineSpan.StartLine, LineSpan.StartCharacter),
-                new Microsoft.CodeAnalysis.Text.LinePosition(LineSpan.EndLine, LineSpan.EndCharacter)));
+    public Location ToLocation() => Location.Create(Tree, Span);
 
-    public static LocationInfo? From(Location? location)
-    {
-        if (location is null) return null;
-        var span = location.SourceSpan;
-        var line = location.GetLineSpan();
-        return new LocationInfo(
-            location.SourceTree?.FilePath ?? string.Empty,
-            new TextSpanInfo(span.Start, span.Length),
-            new LinePositionSpanInfo(
-                line.StartLinePosition.Line,
-                line.StartLinePosition.Character,
-                line.EndLinePosition.Line,
-                line.EndLinePosition.Character));
-    }
+    public static LocationInfo From(SyntaxNode node) => new(node.SyntaxTree, node.Span);
 
-    public static LocationInfo? From(SyntaxReference? syntaxReference)
-    {
-        if (syntaxReference is null) return null;
-        return From(Location.Create(syntaxReference.SyntaxTree, syntaxReference.Span));
-    }
+    public static LocationInfo From(SyntaxToken token) => new(token.SyntaxTree!, token.Span);
 }
-
-internal readonly record struct TextSpanInfo(int Start, int Length);
-
-internal readonly record struct LinePositionSpanInfo(int StartLine, int StartCharacter, int EndLine, int EndCharacter);
 
 /// <summary>
 /// Minimal value-equatable wrapper around an array. Compares element-wise so records using it
@@ -100,6 +91,21 @@ internal readonly struct EquatableArray<T> : System.IEquatable<EquatableArray<T>
     public EquatableArray(T[] array) => _array = array;
 
     public T[] ToArray() => _array ?? System.Array.Empty<T>();
+
+    public bool IsEmpty => _array is null || _array.Length == 0;
+
+    /// <summary>A copy of this array with <paramref name="item"/> appended.</summary>
+    public EquatableArray<T> Add(T item)
+    {
+        var a = ToArray();
+        var copy = new T[a.Length + 1];
+        System.Array.Copy(a, copy, a.Length);
+        copy[a.Length] = item;
+        return new EquatableArray<T>(copy);
+    }
+
+    public System.Collections.Generic.IEnumerator<T> GetEnumerator() =>
+        ((System.Collections.Generic.IEnumerable<T>)ToArray()).GetEnumerator();
 
     public bool Equals(EquatableArray<T> other)
     {

@@ -3,6 +3,7 @@ using System.Collections.Immutable;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using ZeroAlloc.Serialisation.Generator.Models;
 
 [assembly: InternalsVisibleTo("ZeroAlloc.Serialisation.Generator.Tests")]
@@ -39,16 +40,23 @@ internal static class ModelExtractor
         if (attrData.ConstructorArguments.Length != 1) return null;
 
         var diagnostics = ImmutableArray.CreateBuilder<DiagnosticInfo>();
-        var attrLocation = LocationInfo.From(attrData.ApplicationSyntaxReference);
+
+        // Every ZASZ diagnostic is about the [ZeroAllocSerializable] application.
+        var attrSyntax = attrData.ApplicationSyntaxReference?.GetSyntax(ct);
+        var attrLocation = attrSyntax is not null
+            ? LocationInfo.From(attrSyntax)
+            : ctx.TargetNode is TypeDeclarationSyntax typeDecl
+                ? LocationInfo.From(typeDecl.Identifier)
+                : LocationInfo.From(ctx.TargetNode);
 
         // ZASZ001: open generic type
         if (typeSymbol.IsGenericType && typeSymbol.TypeParameters.Length > 0)
         {
             diagnostics.Add(new DiagnosticInfo(
                 SerializerDiagnostics.OpenGeneric,
-                attrLocation ?? LocationInfo.From(typeSymbol.Locations.FirstOrDefault()),
+                attrLocation,
                 new EquatableArray<string>(new[] { typeSymbol.ToDisplayString() })));
-            return new SerializerExtractionResult(null, diagnostics.ToImmutable());
+            return Result(null, attrLocation, diagnostics);
         }
 
         var formatValueObj = attrData.ConstructorArguments[0].Value;
@@ -70,7 +78,7 @@ internal static class ModelExtractor
                 SerializerDiagnostics.UnknownFormat,
                 attrLocation,
                 new EquatableArray<string>(new[] { formatValue.ToString(System.Globalization.CultureInfo.InvariantCulture) })));
-            return new SerializerExtractionResult(null, diagnostics.ToImmutable());
+            return Result(null, attrLocation, diagnostics);
         }
 
         // ZASZ003: missing per-format attribute (warning, does not block emission)
@@ -100,8 +108,12 @@ internal static class ModelExtractor
             FormatName: formatName,
             IsValueType: typeSymbol.IsValueType);
 
-        return new SerializerExtractionResult(model, diagnostics.ToImmutable());
+        return Result(model, attrLocation, diagnostics);
     }
+
+    private static SerializerExtractionResult Result(
+        SerializerModel? model, LocationInfo attrLocation, ImmutableArray<DiagnosticInfo>.Builder diagnostics)
+        => new(model, attrLocation, new EquatableArray<DiagnosticInfo>(diagnostics.ToArray()));
 
     private static bool HasAttributeByName(INamedTypeSymbol typeSymbol, string fullyQualifiedName)
     {
@@ -123,15 +135,15 @@ internal static class ModelExtractor
     /// source-generator naming: the attribute's <c>TypeInfoPropertyName</c> named argument if
     /// supplied, otherwise the target type's unqualified <c>Name</c>.
     /// </summary>
-    public static ImmutableArray<StjContextEntry> ExtractContextEntries(
+    public static EquatableArray<StjContextEntry> ExtractContextEntries(
         GeneratorAttributeSyntaxContext ctx,
         CancellationToken ct)
     {
         if (ctx.TargetSymbol is not INamedTypeSymbol contextSymbol)
-            return ImmutableArray<StjContextEntry>.Empty;
+            return default;
 
         if (!DerivesFromJsonSerializerContext(contextSymbol))
-            return ImmutableArray<StjContextEntry>.Empty;
+            return default;
 
         var contextFullName = contextSymbol.ToDisplayString();
         var builder = ImmutableArray.CreateBuilder<StjContextEntry>();
@@ -158,7 +170,7 @@ internal static class ModelExtractor
                 ContextFullName: contextFullName,
                 PropertyName: propName));
         }
-        return builder.ToImmutable();
+        return new EquatableArray<StjContextEntry>(builder.ToArray());
     }
 
     private static bool DerivesFromJsonSerializerContext(INamedTypeSymbol typeSymbol)
@@ -205,7 +217,7 @@ internal static class ModelExtractor
     /// </summary>
     public static SerializerExtractionResult JoinWithContextMap(
         SerializerExtractionResult raw,
-        ImmutableArray<StjContextEntry> allEntries)
+        EquatableArray<StjContextEntry> allEntries)
     {
         if (raw.Model is null) return raw;
         if (raw.Model.FormatName != "SystemTextJson") return raw;
@@ -227,15 +239,15 @@ internal static class ModelExtractor
         {
             var diag = raw.Diagnostics.Add(new DiagnosticInfo(
                 SerializerDiagnostics.MissingJsonSerializerContext,
-                Location: null,
+                raw.AttributeLocation,
                 new EquatableArray<string>(new[] { raw.Model.FullTypeName })));
-            return new SerializerExtractionResult(Model: null, Diagnostics: diag);
+            return raw with { Model = null, Diagnostics = diag };
         }
 
         var boundModel = raw.Model with
         {
             StjContext = new StjContextBinding(match.ContextFullName, match.PropertyName),
         };
-        return new SerializerExtractionResult(boundModel, raw.Diagnostics);
+        return raw with { Model = boundModel };
     }
 }
