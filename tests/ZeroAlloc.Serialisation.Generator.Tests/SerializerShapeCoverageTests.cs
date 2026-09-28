@@ -121,9 +121,30 @@ internal static class GeneratorTestHost
         return driver.GetRunResult();
     }
 
-    private static CSharpCompilation CreateCompilation(string[] sources)
+    /// <summary>The file path <see cref="GenerateOnFile"/> gives the source tree.</summary>
+    public const string TestFilePath = "/src/Types.cs";
+
+    /// <summary>
+    /// Runs the generator on a source tree with the file path <see cref="TestFilePath"/> and returns
+    /// its diagnostics as the driver filters them: a <c>#pragma warning disable</c> marks the ones
+    /// it covers as suppressed.
+    /// </summary>
+    public static IReadOnlyList<Diagnostic> GenerateOnFile(
+        string source, IReadOnlyDictionary<string, ReportDiagnostic>? severities = null)
     {
-        var trees = sources.Select(static s => CSharpSyntaxTree.ParseText(s)).ToArray();
+        var compilation = CreateCompilation(new[] { CSharpSyntaxTree.ParseText(source, path: TestFilePath) });
+        if (severities is not null)
+            compilation = compilation.WithOptions(compilation.Options.WithSpecificDiagnosticOptions(severities));
+
+        var driver = CSharpGeneratorDriver.Create(new SerializerGenerator()).RunGenerators(compilation);
+        return driver.GetRunResult().Diagnostics;
+    }
+
+    private static CSharpCompilation CreateCompilation(string[] sources) =>
+        CreateCompilation(sources.Select(static s => CSharpSyntaxTree.ParseText(s)).ToArray());
+
+    public static CSharpCompilation CreateCompilation(SyntaxTree[] trees)
+    {
         var zeroAllocRef = MetadataReference.CreateFromFile(
             typeof(ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute).Assembly.Location);
 
