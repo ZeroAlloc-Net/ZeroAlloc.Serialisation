@@ -85,21 +85,34 @@ public sealed class SerializerGenerator : IIncrementalGenerator
         // types, structs and classes. Emits transparent serializers for whichever
         // backend assemblies the consuming compilation references.
         //
-        // Every step carries value-only data: a ValueObjectModel per type and three backend
-        // flags. Symbols or the Compilation would compare unequal on every edit and rerun
-        // every output below, and would keep old compilations alive.
-        var valueObjectModels = context.SyntaxProvider
+        // Every step carries value-only data: a ValueObjectModel per type, the diagnostics as
+        // DiagnosticInfo, whose location keeps only a syntax tree like the pipelines above, and
+        // three backend flags. Symbols or the Compilation would compare unequal on every edit
+        // and rerun every output below, and would keep old compilations alive.
+        var valueObjectResults = context.SyntaxProvider
             .ForAttributeWithMetadataName(
                 "ZeroAlloc.ValueObjects.ValueObjectAttribute",
                 // ZeroAlloc.ValueObjects allows the attribute on classes and structs, records
                 // included; the emitters repeat whichever declaration kind the type has.
                 predicate: static (node, _) =>
                     node is StructDeclarationSyntax || node is ClassDeclarationSyntax || node is RecordDeclarationSyntax,
-                transform: static (ctx, _) => ctx.TargetSymbol is INamedTypeSymbol candidate
-                    ? ModelExtractor.TryGetTransparentValueObject(candidate)
-                    : null)
-            .Where(static m => m is not null)
-            .Select(static (m, _) => m!)
+                transform: static (ctx, ct) => ModelExtractor.ExtractValueObject(ctx, ct))
+            .Where(static r => r is not null)
+            .Select(static (r, _) => r!)
+            .WithTrackingName(TrackingNames.ValueObjectResults);
+
+        // ZASZ005: a generic, generic-nested or file-local value object gets nothing but this.
+        context.RegisterSourceOutput(valueObjectResults, static (ctx, result) =>
+        {
+            foreach (var info in result.Diagnostics)
+            {
+                ctx.ReportDiagnostic(info.ToDiagnostic());
+            }
+        });
+
+        var valueObjectModels = valueObjectResults
+            .Where(static r => r.Model is not null)
+            .Select(static (r, _) => r.Model!)
             .WithTrackingName(TrackingNames.ValueObjectModels);
 
         // Reruns on every edit, but produces three bools that compare equal until the
@@ -108,13 +121,17 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             .Select(static (compilation, _) => ValueObjectEmitter.DetectBackends(compilation))
             .WithTrackingName(TrackingNames.ValueObjectBackends);
 
-        var perTypeInput = valueObjectModels
+        // The per-type outputs take the whole result: ZASZ006 is reported, and the MemoryPack
+        // formatter skipped, only when the MemoryPack backend is referenced.
+        var perTypeInput = valueObjectResults
+            .Where(static r => r.Model is not null)
             .Combine(backends)
             .WithTrackingName(TrackingNames.ValueObjectInput);
 
         context.RegisterSourceOutput(perTypeInput, static (sourceCtx, pair) =>
         {
-            var (model, backendFlags) = pair;
+            var (result, backendFlags) = pair;
+            var model = result.Model!;
 
             if (backendFlags.SystemTextJson)
             {
@@ -128,7 +145,11 @@ public sealed class SerializerGenerator : IIncrementalGenerator
                 sourceCtx.AddSource(ValueObjectEmitter.HintName(model, "MessagePackFormatter"), mpSource);
             }
 
-            if (backendFlags.MemoryPack)
+            if (backendFlags.MemoryPack && result.MemoryPackDiagnostic is { } memoryPackDiagnostic)
+            {
+                sourceCtx.ReportDiagnostic(memoryPackDiagnostic.ToDiagnostic());
+            }
+            else if (backendFlags.MemoryPack)
             {
                 var mpkSource = ValueObjectEmitter.EmitMemoryPackFormatter(model);
                 sourceCtx.AddSource(ValueObjectEmitter.HintName(model, "MemoryPackFormatter"), mpkSource);

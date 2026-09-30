@@ -57,13 +57,7 @@ internal static class ValueObjectEmitter
         var sb = new System.Text.StringBuilder();
         foreach (var containing in model.ContainingTypes)
         {
-            sb.Append(containing.Name);
-            if (containing.TypeParameters.Length > 0)
-            {
-                // Hint names cannot hold '<' or '>'; use the metadata arity suffix instead.
-                sb.Append('`').Append(containing.TypeParameters.Count(static c => c == ',') + 1);
-            }
-            sb.Append('.');
+            sb.Append(containing.Name).Append('.');
         }
         return sb.Append(model.TypeName).ToString();
     }
@@ -105,7 +99,7 @@ internal static class ValueObjectEmitter
             var type = containing[i];
             var sb = new System.Text.StringBuilder();
             sb.Append(type.Accessibility).Append(' ').Append(type.Modifiers).Append("partial ")
-                .Append(type.DeclarationKeyword).Append(' ').Append(type.Name).Append(type.TypeParameters).Append('\n');
+                .Append(type.DeclarationKeyword).Append(' ').Append(type.Name).Append('\n');
             sb.Append("{\n");
             // The templates carry the line endings of this source file, so a blank line may be
             // a lone '\r'. Indenting it would leave trailing whitespace.
@@ -257,9 +251,8 @@ internal static class ValueObjectEmitter
 
     /// <summary>
     /// The value objects the per-assembly registrar and resolvers can list. They live at
-    /// namespace level, so a type nested in a private or protected type, or in a generic type,
-    /// cannot be named there; such a type is still served by the attribute on its partial
-    /// declaration.
+    /// namespace level, so a type that is private or protected, or nested in such a type, cannot
+    /// be named there; it is still served by the attribute on its partial declaration.
     /// </summary>
     private static System.Collections.Generic.IEnumerable<ValueObjectModel> ReachableFromNamespace(
         System.Collections.Generic.IReadOnlyList<ValueObjectModel> valueObjects) =>

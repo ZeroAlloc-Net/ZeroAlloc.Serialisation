@@ -186,6 +186,100 @@ internal static class ModelExtractor
     private const string ValueObjectAttributeFqn = "ZeroAlloc.ValueObjects.ValueObjectAttribute";
 
     /// <summary>
+    /// Inspects a <c>[ValueObject]</c> application. A transparent value object gets a model,
+    /// unless it is generic, nested in a generic type or file-local, which ZASZ005 reports. One
+    /// inside a private or protected containing type carries ZASZ006 for the MemoryPack backend.
+    /// </summary>
+    internal static ValueObjectExtractionResult? ExtractValueObject(
+        GeneratorAttributeSyntaxContext ctx,
+        CancellationToken ct)
+    {
+        if (ctx.TargetSymbol is not INamedTypeSymbol candidate) return null;
+
+        var model = TryGetTransparentValueObject(candidate);
+        if (model is null) return null;
+
+        var displayName = candidate.ToDisplayString();
+
+        var blocker = ValueObjectBlocker(candidate);
+        if (blocker is not null)
+        {
+            var attrSyntax = ctx.Attributes.Length > 0
+                ? ctx.Attributes[0].ApplicationSyntaxReference?.GetSyntax(ct)
+                : null;
+            var attrLocation = attrSyntax is not null
+                ? LocationInfo.From(attrSyntax)
+                : TypeIdentifierLocation(ctx.TargetNode);
+            return new ValueObjectExtractionResult(
+                Model: null,
+                Diagnostics: new EquatableArray<DiagnosticInfo>(new[]
+                {
+                    new DiagnosticInfo(
+                        SerializerDiagnostics.ValueObjectCannotBeGenerated,
+                        attrLocation,
+                        new EquatableArray<string>(new[] { displayName, blocker })),
+                }),
+                MemoryPackDiagnostic: null);
+        }
+
+        DiagnosticInfo? memoryPackDiagnostic = null;
+        for (var containing = candidate.ContainingType; containing is not null; containing = containing.ContainingType)
+        {
+            var hidden = containing.DeclaredAccessibility switch
+            {
+                Accessibility.Private => "private",
+                Accessibility.Protected => "protected",
+                Accessibility.ProtectedAndInternal => "private protected",
+                _ => null,
+            };
+            if (hidden is null) continue;
+
+            memoryPackDiagnostic = new DiagnosticInfo(
+                SerializerDiagnostics.ValueObjectMemoryPackNotRegistered,
+                TypeIdentifierLocation(ctx.TargetNode),
+                new EquatableArray<string>(new[] { displayName, containing.ToDisplayString(), hidden }));
+            break;
+        }
+
+        return new ValueObjectExtractionResult(
+            model,
+            new EquatableArray<DiagnosticInfo>(Array.Empty<DiagnosticInfo>()),
+            memoryPackDiagnostic);
+    }
+
+    /// <summary>
+    /// Why no serializers can be generated for <paramref name="type"/>, completing
+    /// "gets no generated serializers because ...", or null when they can.
+    /// </summary>
+    private static string? ValueObjectBlocker(INamedTypeSymbol type)
+    {
+        for (var current = type; current is not null; current = current.ContainingType)
+        {
+            if (current.IsFileLocal)
+            {
+                return SymbolEqualityComparer.Default.Equals(current, type)
+                    ? "it is file-local, so a partial declaration in a generated file would be a different type"
+                    : $"it is nested in file-local type '{current.ToDisplayString()}', so a partial declaration in a generated file would be a different type";
+            }
+        }
+
+        for (var current = type; current is not null; current = current.ContainingType)
+        {
+            if (current.TypeParameters.Length > 0)
+            {
+                return SymbolEqualityComparer.Default.Equals(current, type)
+                    ? "it is generic, and its converters could only be created by reflection, which is not NativeAOT-safe"
+                    : $"it is nested in generic type '{current.ToDisplayString()}', and its converters could only be created by reflection, which is not NativeAOT-safe";
+            }
+        }
+
+        return null;
+    }
+
+    private static LocationInfo TypeIdentifierLocation(SyntaxNode node) =>
+        node is BaseTypeDeclarationSyntax typeDecl ? LocationInfo.From(typeDecl.Identifier) : LocationInfo.From(node);
+
+    /// <summary>
     /// If <paramref name="candidate"/> is decorated with
     /// <c>[ZeroAlloc.ValueObjects.ValueObject]</c> (FQN match — no runtime
     /// reference to ZA.ValueObjects required) and declares exactly one public

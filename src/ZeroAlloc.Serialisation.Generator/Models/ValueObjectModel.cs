@@ -26,8 +26,9 @@ namespace ZeroAlloc.Serialisation.Generator.Models;
 /// <param name="IsReadOnly">Whether the type is a readonly struct.</param>
 /// <param name="IsReachableFromNamespace">
 /// Whether code at namespace level of the same assembly can name the type as a closed type: the
-/// type and every containing type are public, internal or protected internal, and no containing
-/// type is generic. The per-assembly registrar and resolvers list only these.
+/// type and every containing type are public, internal or protected internal. The per-assembly
+/// registrar and resolvers list only these. Generic and generic-nested types never get a model;
+/// ZASZ005 reports them.
 /// </param>
 /// <param name="UnderlyingPropertyName">The name of the single public instance property.</param>
 /// <param name="UnderlyingSpecialType">The property type's <see cref="SpecialType"/>.</param>
@@ -77,8 +78,7 @@ internal sealed record ValueObjectModel(
         for (var current = type.ContainingType; current is not null; current = current.ContainingType)
         {
             containing.Insert(0, ContainingTypeModel.From(current));
-            reachableFromNamespace &= IsAccessibleFromAssembly(current.DeclaredAccessibility)
-                && current.TypeParameters.IsEmpty;
+            reachableFromNamespace &= IsAccessibleFromAssembly(current.DeclaredAccessibility);
         }
 
         return new ValueObjectModel(
@@ -137,14 +137,12 @@ internal sealed record ValueObjectModel(
 /// <param name="DeclarationKeyword">
 /// <c>class</c>, <c>record</c>, <c>struct</c>, <c>record struct</c> or <c>interface</c>.
 /// </param>
-/// <param name="Name">The type's simple name.</param>
-/// <param name="TypeParameters">The type parameter list, such as <c>&lt;TKey, TValue&gt;</c>, or empty.</param>
+/// <param name="Name">The type's simple name. A generic containing type never gets here; ZASZ005.</param>
 internal sealed record ContainingTypeModel(
     string Accessibility,
     string Modifiers,
     string DeclarationKeyword,
-    string Name,
-    string TypeParameters)
+    string Name)
 {
     public static ContainingTypeModel From(INamedTypeSymbol type)
     {
@@ -153,18 +151,28 @@ internal sealed record ContainingTypeModel(
         if (type.IsValueType && type.IsReadOnly) modifiers += "readonly ";
         if (type.IsRefLikeType) modifiers += "ref ";
 
-        var typeParameters = type.TypeParameters.IsEmpty
-            ? ""
-            : "<" + string.Join(", ", System.Linq.Enumerable.Select(type.TypeParameters, static p => p.Name)) + ">";
-
         return new ContainingTypeModel(
             Accessibility: ValueObjectModel.AccessibilityKeyword(type.DeclaredAccessibility),
             Modifiers: modifiers,
             DeclarationKeyword: ValueObjectModel.DeclarationKeywordOf(type),
-            Name: type.Name,
-            TypeParameters: typeParameters);
+            Name: type.Name);
     }
 }
+
+/// <summary>
+/// The outcome of inspecting a <c>[ValueObject]</c> type: the model when serializers can be
+/// generated, and the diagnostics to report.
+/// </summary>
+/// <param name="Model">The model, or null when nothing is generated for the type.</param>
+/// <param name="Diagnostics">Diagnostics reported whatever backends the compilation references.</param>
+/// <param name="MemoryPackDiagnostic">
+/// ZASZ006, reported only when the compilation references the MemoryPack backend. When set, no
+/// MemoryPack formatter is generated for the type.
+/// </param>
+internal sealed record ValueObjectExtractionResult(
+    ValueObjectModel? Model,
+    EquatableArray<DiagnosticInfo> Diagnostics,
+    DiagnosticInfo? MemoryPackDiagnostic);
 
 /// <summary>
 /// Which serializer backends the compilation references. Three bools, so the value compares equal

@@ -125,6 +125,30 @@ The `SerializationFormat` enum selects which backend API the generated code call
 
 Any `class` or `struct` decorated with `[ZeroAllocSerializable]`. The type does not need to be `partial` — `partial` is only required by the backend's own generator (e.g. MemoryPack).
 
+## Diagnostics
+
+| ID | Severity | Reported when |
+|---|---|---|
+| `ZASZ001` | Error | `[ZeroAllocSerializable]` is on an open generic type. |
+| `ZASZ002` | Error | The `SerializationFormat` value is unknown. |
+| `ZASZ003` | Warning | The type lacks the backend's own attribute, `[MemoryPackable]` or `[MessagePackObject]`. |
+| `ZASZ004` | Error | A `SystemTextJson` type has no `[JsonSerializable]` on a `JsonSerializerContext` in the compilation. |
+| `ZASZ005` | Error | A `[ValueObject]` type is generic, nested in a generic type, or file-local. |
+| `ZASZ006` | Warning | A `[ValueObject]` type sits inside a private or protected type, so no MemoryPack formatter can be registered. |
+
+### ZASZ005: `[ValueObject]` type cannot get generated serializers
+
+Reported at the `[ValueObject]` attribute; nothing is generated for the type. The generator extends a value object with a partial declaration and converters:
+
+- A **file-local** type, or a type nested in one, cannot be extended from a generated file: a `file partial` declaration there would be a different type.
+- A **generic** type, or a type nested in a generic type such as `Container<T>.Id`, is a different type for every type argument. An attribute cannot name `Container<T>.IdConverter`, System.Text.Json does not close open generic converters, and a MemoryPack module initializer cannot live in a generic type. The converters could only be created by reflection at run time, which is not NativeAOT-safe.
+
+Move the value object to the top level or into a non-generic type, make it non-file-local, or write its converters by hand.
+
+### ZASZ006: MemoryPack formatter cannot be registered
+
+Reported on the value object's name when the compilation references `ZeroAlloc.Serialisation.MemoryPack` and a containing type is `private`, `protected` or `private protected`. MemoryPack formatters are registered from a `[ModuleInitializer]`, which must be accessible from the whole assembly, and inside such a type it cannot be. The System.Text.Json converter and the MessagePack formatter are still generated; only the MemoryPack formatter is skipped. Make the containing types `internal` or `public` to get it. A value object that is itself private inside a public or internal type is not affected.
+
 ## Release tracking
 
 `src/ZeroAlloc.Serialisation.Generator/AnalyzerReleases.Shipped.md` records the release each analyzer rule first shipped in, and any later change to its category or severity. A new rule goes into `AnalyzerReleases.Unshipped.md`. Changing a shipped rule's severity or category, or removing it, has to be declared there under `### Changed Rules` or `### Removed Rules`, or the build fails. The same move covers every `PublicAPI.Unshipped.txt`: new public API goes there, and removing shipped API is declared with a `*REMOVED*` line. API that only the modern target frameworks compile, the System.Text.Json fallback, is tracked in its own pair, `PublicAPI.Unshipped.modern.txt` and `PublicAPI.Shipped.modern.txt`, which `netstandard2.1` doesn't read.
