@@ -10,6 +10,12 @@ Generated `{TypeName}Serializer` classes are fully AOT-safe:
 
 No `[RequiresDynamicCode]` or `[RequiresUnreferencedCode]` attributes appear on generated code.
 
+## Closed Generic Types
+
+A closed generic type declared with `[assembly: ZeroAllocSerializable(typeof(Envelope<Order>), format)]` gets a serializer and dispatcher entry that name `Envelope<Order>` directly, so NativeAOT compiles them ahead of time like any other type. See [Closed Generic Types](source-generator.md#closed-generic-types).
+
+Under System.Text.Json and MemoryPack this is AOT-safe end to end, and the AOT smoke test covers `Envelope<Order>`, `Pair<int, Order>` and `Envelope<Pair<int, Order>>` in both. Under MessagePack it is not: for a generic `[MessagePackObject]` type, MessagePack's own source generator emits a resolver that creates the formatter with `Type.MakeGenericType`. NativeAOT reports that as `IL3050`, and a construction over a value type, such as `Pair<int, Order>`, throws at run time. Use System.Text.Json or MemoryPack for closed generic types in a NativeAOT app. Tracked in [#184](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/184).
+
 ## Base Classes
 
 The base classes (`MemoryPackSerializer<T>`, `MessagePackSerializer<T>`) carry `[RequiresDynamicCode]` and `[RequiresUnreferencedCode]` because they invoke open-generic serialization APIs. Use them only in contexts where AOT is not required.

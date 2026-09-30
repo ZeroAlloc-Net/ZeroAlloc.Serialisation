@@ -3,10 +3,27 @@ using Microsoft.CodeAnalysis.Text;
 
 namespace ZeroAlloc.Serialisation.Generator.Models;
 
+/// <summary>
+/// One serializable type: a non-generic type carrying <c>[ZeroAllocSerializable(format)]</c>, or a
+/// closed generic type named by <c>[assembly: ZeroAllocSerializable(typeof(...), format)]</c>.
+/// </summary>
+/// <param name="Namespace">The namespace the generated serializer and DI extension go in: the
+/// type's own, or for a closed generic type, its generic definition's.</param>
+/// <param name="TypeName">The identifier the generated names are built from: <c>{TypeName}Serializer</c>
+/// and <c>Add{TypeName}Serializer</c>. The type's name, or for a closed generic type a name built
+/// from its simple names, such as <c>EnvelopeOfOrder</c> for <c>Envelope&lt;Order&gt;</c>.</param>
+/// <param name="FullTypeName">The type's namespace-qualified name, such as
+/// <c>App.Envelope&lt;App.Order&gt;</c>. It identifies the type in diagnostics, in the lookup of
+/// its <c>JsonSerializerContext</c> entry and in duplicate detection.</param>
+/// <param name="TypeRef">How generated code refers to the type, fully qualified with <c>global::</c>
+/// down to every type argument, so no name in the generated namespace can capture it.</param>
+/// <param name="HintName">The unique file name stem of the type's generated sources.</param>
 internal sealed record SerializerModel(
     string Namespace,
     string TypeName,
     string FullTypeName,
+    string TypeRef,
+    string HintName,
     string FormatName,  // "MemoryPack" | "MessagePack" | "SystemTextJson"
     bool IsValueType,
     StjContextBinding? StjContext = null
@@ -39,6 +56,18 @@ internal sealed record SerializerExtractionResult(
     SerializerModel? Model,
     LocationInfo AttributeLocation,
     EquatableArray<DiagnosticInfo> Diagnostics);
+
+/// <summary>
+/// One <c>[assembly: ZeroAllocSerializable(typeof(...), format)]</c> application, before duplicates
+/// and generated-name collisions are resolved across the compilation.
+/// </summary>
+/// <param name="DeclaredType">The <see cref="SerializerModel.FullTypeName"/> of the closed generic
+/// type the declaration names, the key duplicates are found by; null when it names no closed
+/// generic type.</param>
+internal sealed record AssemblyDeclaration(SerializerExtractionResult Result, string? DeclaredType);
+
+/// <summary>The generated names of one serializable type, to find collisions between types.</summary>
+internal sealed record GeneratedName(string Namespace, string TypeName, string FullTypeName);
 
 /// <summary>
 /// Equatable, location-describing diagnostic payload that can cross the incremental pipeline boundary

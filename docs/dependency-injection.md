@@ -12,6 +12,16 @@ services.TryAddSingleton<ISerializer<OrderCreated>, OrderCreatedSerializer>();
 
 The generated class is `internal`, so it is only accessible through this DI extension.
 
+A closed generic type declared on the assembly gets its extension the same way, named after the type and its type arguments:
+
+```csharp
+[assembly: ZeroAllocSerializable(typeof(Envelope<Order>), SerializationFormat.MemoryPack)]
+
+services.AddEnvelopeOfOrderSerializer();   // ISerializer<Envelope<Order>>
+```
+
+See [Closed Generic Types](source-generator.md#closed-generic-types) for the naming rule.
+
 ## Runtime Dispatch — `ISerializerDispatcher`
 
 The generator also emits one `SerializerDispatcher` class per assembly that covers **all** `[ZeroAllocSerializable]` types in that assembly. Register it with the generated `AddSerializerDispatcher()` extension:

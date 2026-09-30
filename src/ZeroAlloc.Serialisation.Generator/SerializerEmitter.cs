@@ -22,9 +22,9 @@ internal static class SerializerEmitter
         var deserializeCall = model.FormatName switch
         {
             "MemoryPack" =>
-                $"return global::MemoryPack.MemoryPackSerializer.Deserialize<{model.FullTypeName}>(buffer);",
+                $"return global::MemoryPack.MemoryPackSerializer.Deserialize<{model.TypeRef}>(buffer);",
             "MessagePack" =>
-                $"// MessagePack 3.x has no Deserialize(ReadOnlySpan<byte>) overload — it requires ReadOnlySequence<byte>.\n    // Converting from ReadOnlySpan<byte> requires a buffer copy; this allocation is unavoidable with this API.\n    return global::MessagePack.MessagePackSerializer.Deserialize<{model.FullTypeName}>(new global::System.Buffers.ReadOnlySequence<byte>(buffer.ToArray()));",
+                $"// MessagePack 3.x has no Deserialize(ReadOnlySpan<byte>) overload — it requires ReadOnlySequence<byte>.\n    // Converting from ReadOnlySpan<byte> requires a buffer copy; this allocation is unavoidable with this API.\n    return global::MessagePack.MessagePackSerializer.Deserialize<{model.TypeRef}>(new global::System.Buffers.ReadOnlySequence<byte>(buffer.ToArray()));",
             "SystemTextJson" =>
                 $"return global::System.Text.Json.JsonSerializer.Deserialize(buffer, global::{model.StjContext!.ContextFullName}.Default.{model.StjContext.PropertyName});",
             _ => throw new System.InvalidOperationException(
@@ -35,8 +35,8 @@ internal static class SerializerEmitter
         // not Nullable<T>. Emitting "X?" for a struct would declare Nullable<X> and fail to implement
         // the interface, so only reference types carry the nullable annotation.
         var deserializeReturnType = model.IsValueType
-            ? model.FullTypeName
-            : model.FullTypeName + "?";
+            ? model.TypeRef
+            : model.TypeRef + "?";
 
         var ns = string.IsNullOrEmpty(model.Namespace)
             ? ""
@@ -59,9 +59,9 @@ internal static class SerializerEmitter
             using System.Buffers;
             using ZeroAlloc.Serialisation;
 
-            {{ns}}internal sealed class {{model.TypeName}}Serializer : ISerializer<{{model.FullTypeName}}>
+            {{ns}}internal sealed class {{model.TypeName}}Serializer : ISerializer<{{model.TypeRef}}>
             {
-            {{suppressAttrs}}    public void Serialize(IBufferWriter<byte> writer, {{model.FullTypeName}} value)
+            {{suppressAttrs}}    public void Serialize(IBufferWriter<byte> writer, {{model.TypeRef}} value)
                 {
                     {{serializerCall}}
                 }
@@ -74,8 +74,8 @@ internal static class SerializerEmitter
             }
             """;
 
-        // The full type name keeps same-named types in different namespaces apart; a repeated
-        // hint name makes Roslyn throw and drop the generator's whole output.
-        ctx.AddSource($"{model.FullTypeName}Serializer.g.cs", source);
+        // The hint name keeps same-named types in different namespaces, and every closed
+        // construction of a generic type, apart; see ModelExtractor.HintNameOf.
+        ctx.AddSource($"{model.HintName}Serializer.g.cs", source);
     }
 }

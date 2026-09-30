@@ -71,7 +71,7 @@ public class SerializerGeneratorTests
         var text = serializerFile!.GetText().ToString();
         Assert.Contains("MemoryPackSerializer.Serialize", text);
         Assert.Contains("MemoryPackSerializer.Deserialize<", text);
-        Assert.Contains("ISerializer<MyApp.OrderEvent>", text);
+        Assert.Contains("ISerializer<global::MyApp.OrderEvent>", text);
     }
 
     [Fact]
@@ -97,7 +97,7 @@ public class SerializerGeneratorTests
         Assert.NotNull(diFile);
         var text = diFile!.GetText().ToString();
         Assert.Contains("AddInvoiceEventSerializer", text);
-        Assert.Contains("ISerializer<MyApp.InvoiceEvent>", text);
+        Assert.Contains("ISerializer<global::MyApp.InvoiceEvent>", text);
     }
 
     [Fact]

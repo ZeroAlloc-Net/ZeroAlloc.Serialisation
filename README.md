@@ -53,6 +53,16 @@ public class OrderEventStore(ISerializer<OrderCreated> serializer)
 }
 ```
 
+A closed generic type such as `Envelope<Order>` is declared once per closed construction, on the assembly, and gets the same serializer, DI registration and dispatcher entry:
+
+```csharp
+[assembly: ZeroAllocSerializable(typeof(Envelope<Order>), SerializationFormat.MemoryPack)]
+
+services.AddEnvelopeOfOrderSerializer();   // ISerializer<Envelope<Order>>
+```
+
+See [Closed Generic Types](docs/source-generator.md#closed-generic-types).
+
 ## Runtime Dispatch
 
 When you need to serialize/deserialize by `Type` at runtime (e.g. in event sourcing infrastructure), use `ISerializerDispatcher`. The generator emits one `SerializerDispatcher` per assembly covering all annotated types:
