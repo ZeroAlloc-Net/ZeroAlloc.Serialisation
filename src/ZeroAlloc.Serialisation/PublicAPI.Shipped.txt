@@ -11,4 +11,6 @@ ZeroAlloc.Serialisation.SerializationFormat.MessagePack = 1 -> ZeroAlloc.Seriali
 ZeroAlloc.Serialisation.SerializationFormat.SystemTextJson = 2 -> ZeroAlloc.Serialisation.SerializationFormat
 ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute
 ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute.Format.get -> ZeroAlloc.Serialisation.SerializationFormat
+ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute.Type.get -> System.Type?
+ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute.ZeroAllocSerializableAttribute(System.Type! type, ZeroAlloc.Serialisation.SerializationFormat format) -> void
 ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute.ZeroAllocSerializableAttribute(ZeroAlloc.Serialisation.SerializationFormat format) -> void
