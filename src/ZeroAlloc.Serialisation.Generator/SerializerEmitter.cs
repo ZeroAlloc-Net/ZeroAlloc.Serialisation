@@ -74,6 +74,8 @@ internal static class SerializerEmitter
             }
             """;
 
-        ctx.AddSource($"{model.TypeName}Serializer.g.cs", source);
+        // The full type name keeps same-named types in different namespaces apart; a repeated
+        // hint name makes Roslyn throw and drop the generator's whole output.
+        ctx.AddSource($"{model.FullTypeName}Serializer.g.cs", source);
     }
 }

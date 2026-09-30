@@ -54,12 +54,12 @@ public sealed class ValueObjectIncrementalityTests
     // Every file the [ValueObject] outputs emit for the source above with all three backends.
     private static readonly string[] ExpectedHintNames =
     [
-        "CustomerIdMemoryPackFormatter.g.cs",
-        "CustomerIdMessagePackFormatter.g.cs",
-        "CustomerIdSystemTextJsonConverter.g.cs",
-        "OrderRefMemoryPackFormatter.g.cs",
-        "OrderRefMessagePackFormatter.g.cs",
-        "OrderRefSystemTextJsonConverter.g.cs",
+        "Demo.CustomerIdMemoryPackFormatter.g.cs",
+        "Demo.CustomerIdMessagePackFormatter.g.cs",
+        "Demo.CustomerIdSystemTextJsonConverter.g.cs",
+        "Demo.OrderRefMemoryPackFormatter.g.cs",
+        "Demo.OrderRefMessagePackFormatter.g.cs",
+        "Demo.OrderRefSystemTextJsonConverter.g.cs",
         "ValueObjectJsonConvertersExtensions.g.cs",
         "ValueObjectJsonTypeInfoResolver.g.cs",
         "ValueObjectMessagePackResolverExtensions.g.cs",
@@ -112,9 +112,9 @@ public sealed class ValueObjectIncrementalityTests
         driver = driver.RunGenerators(compilation.ReplaceSyntaxTree(valueObjects, renamed));
         var result = driver.GetRunResult().Results[0];
 
-        var converter = Generated(result, "CustomerIdSystemTextJsonConverter.g.cs");
+        var converter = Generated(result, "Demo.CustomerIdSystemTextJsonConverter.g.cs");
         Assert.Contains("reader.GetInt64()", converter, StringComparison.Ordinal);
-        var formatter = Generated(result, "CustomerIdMemoryPackFormatter.g.cs");
+        var formatter = Generated(result, "Demo.CustomerIdMemoryPackFormatter.g.cs");
         Assert.Contains("WriteValue<long>", formatter, StringComparison.Ordinal);
     }
 
@@ -133,8 +133,8 @@ public sealed class ValueObjectIncrementalityTests
 
         Assert.Equal(
             [
-                "CustomerIdMessagePackFormatter.g.cs",
-                "OrderRefMessagePackFormatter.g.cs",
+                "Demo.CustomerIdMessagePackFormatter.g.cs",
+                "Demo.OrderRefMessagePackFormatter.g.cs",
                 "ValueObjectMessagePackResolverExtensions.g.cs",
             ],
             HintNames(driver.GetRunResult().Results[0]),
