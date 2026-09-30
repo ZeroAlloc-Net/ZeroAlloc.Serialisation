@@ -12,6 +12,9 @@ internal static class TrackingNames
     public const string Models = nameof(Models);
     public const string AllModels = nameof(AllModels);
     public const string TypeLevelNames = nameof(TypeLevelNames);
+    public const string TypeLevelCollisions = nameof(TypeLevelCollisions);
+    public const string QualifiedModels = nameof(QualifiedModels);
+    public const string GeneratedAccessibility = nameof(GeneratedAccessibility);
     public const string AssemblyDeclarations = nameof(AssemblyDeclarations);
     public const string ResolvedAssemblyDeclarations = nameof(ResolvedAssemblyDeclarations);
     public const string BoundAssemblyResults = nameof(BoundAssemblyResults);

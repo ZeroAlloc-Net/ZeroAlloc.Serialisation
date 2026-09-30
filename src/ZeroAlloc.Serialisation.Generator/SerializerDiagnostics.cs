@@ -99,4 +99,13 @@ internal static class SerializerDiagnostics
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "A closed generic type's generated names are built from the simple names of the type and its type arguments, such as EnvelopeOfOrder for Envelope<Order>. Type arguments with the same simple name from different namespaces give the same names. Rename one of the types, or serialize them from different assemblies.");
+
+    public static readonly DiagnosticDescriptor InvalidGeneratedAccessibility = new(
+        id: "ZASZ012",
+        title: "Invalid ZeroAllocGeneratedAccessibility value",
+        messageFormat: "MSBuild property 'ZeroAllocGeneratedAccessibility' has invalid value '{0}'; allowed values are 'Public' and 'Internal'",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "ZeroAllocGeneratedAccessibility sets the accessibility of the generated SerializerDispatcher and of the generated registration extensions. Only Public, the default, and Internal are allowed, compared case-insensitively. Any other value is reported and treated as Public.");
 }

@@ -1,0 +1,11 @@
+<Project>
+  <!--
+    Makes the org-wide ZeroAllocGeneratedAccessibility MSBuild property visible to the
+    ZeroAlloc.Serialisation.Generator source generator via AnalyzerConfigOptionsProvider.GlobalOptions,
+    as build_property.ZeroAllocGeneratedAccessibility. Without this, a project setting the
+    property would have no effect: the generator would never see the value. See #185.
+  -->
+  <ItemGroup>
+    <CompilerVisibleProperty Include="ZeroAllocGeneratedAccessibility" />
+  </ItemGroup>
+</Project>

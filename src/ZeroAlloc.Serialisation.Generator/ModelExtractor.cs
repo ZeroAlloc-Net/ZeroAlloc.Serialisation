@@ -204,7 +204,7 @@ internal static class ModelExtractor
     /// </summary>
     public static EquatableArray<SerializerExtractionResult> ResolveAssemblyDeclarations(
         ImmutableArray<EquatableArray<AssemblyDeclaration>> perFile,
-        ImmutableArray<GeneratedName> typeLevelNames)
+        EquatableArray<GeneratedName> typeLevelNames)
     {
         var declarations = perFile
             .SelectMany(static file => file.ToArray())
@@ -275,6 +275,69 @@ internal static class ModelExtractor
         }
 
         return new EquatableArray<SerializerExtractionResult>(results.ToArray());
+    }
+
+    /// <summary>
+    /// The full names of the type-level serializable types whose generated names collide: two or
+    /// more types in one namespace with the same name, which happens for nested types such as
+    /// <c>A.Inner</c> and <c>B.Inner</c>. Only these get qualified names; see
+    /// <see cref="QualifyOnCollision"/>. Sorted, so the result compares equal until the set changes.
+    /// </summary>
+    public static EquatableArray<string> FindTypeLevelCollisions(ImmutableArray<GeneratedName> names)
+    {
+        var colliding = names
+            .GroupBy(static n => (n.Namespace, n.TypeName))
+            .Where(static g => g.Select(static n => n.FullTypeName).Distinct(StringComparer.Ordinal).Skip(1).Any())
+            .SelectMany(static g => g.Select(static n => n.FullTypeName))
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(static n => n, StringComparer.Ordinal)
+            .ToArray();
+        return new EquatableArray<string>(colliding);
+    }
+
+    /// <summary>
+    /// Gives a type whose generated names collide with another type's a name qualified with its
+    /// namespace and containing types, dots replaced by underscores: <c>Demo.A.Inner</c> gets
+    /// <c>Demo_A_InnerSerializer</c> and <c>AddDemo_A_InnerSerializer</c>. Every other type keeps
+    /// its name, so its generated code is unchanged.
+    /// </summary>
+    public static SerializerModel QualifyOnCollision(SerializerModel model, EquatableArray<string> colliding) =>
+        Collides(model.FullTypeName, colliding) ? model with { TypeName = QualifiedName(model.FullTypeName) } : model;
+
+    /// <summary>
+    /// The generated names of the type-level types after <see cref="QualifyOnCollision(SerializerModel, EquatableArray{string})"/>,
+    /// which the assembly-level declarations are checked against for ZASZ011.
+    /// </summary>
+    public static EquatableArray<GeneratedName> QualifyOnCollision(
+        ImmutableArray<GeneratedName> names, EquatableArray<string> colliding) =>
+        new(names
+            .Select(n => Collides(n.FullTypeName, colliding) ? n with { TypeName = QualifiedName(n.FullTypeName) } : n)
+            .ToArray());
+
+    private static bool Collides(string fullTypeName, EquatableArray<string> colliding) =>
+        Array.IndexOf(colliding.ToArray(), fullTypeName) >= 0;
+
+    private static string QualifiedName(string fullTypeName) => fullTypeName.Replace('.', '_');
+
+    /// <summary>
+    /// Resolves the org-wide <c>ZeroAllocGeneratedAccessibility</c> MSBuild property. Unset, empty
+    /// or <c>Public</c> gives <c>public</c>, <c>Internal</c> gives <c>internal</c>, compared
+    /// case-insensitively. Any other value falls back to <c>public</c> and is reported as ZASZ012.
+    /// </summary>
+    public static GeneratedAccessibility ResolveGeneratedAccessibility(
+        Microsoft.CodeAnalysis.Diagnostics.AnalyzerConfigOptionsProvider provider)
+    {
+        if (!provider.GlobalOptions.TryGetValue("build_property.ZeroAllocGeneratedAccessibility", out var raw)
+            || string.IsNullOrEmpty(raw)
+            || string.Equals(raw, "Public", StringComparison.OrdinalIgnoreCase))
+        {
+            return GeneratedAccessibility.Public;
+        }
+
+        if (string.Equals(raw, "Internal", StringComparison.OrdinalIgnoreCase))
+            return new GeneratedAccessibility("internal", null);
+
+        return new GeneratedAccessibility("public", raw);
     }
 
     /// <summary>
