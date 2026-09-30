@@ -82,7 +82,7 @@ public sealed class SerializerGenerator : IIncrementalGenerator
         });
 
         // V1: parallel discovery pass for [ZeroAlloc.ValueObjects.ValueObject]
-        // partial structs. Emits transparent serializers for whichever
+        // types, structs and classes. Emits transparent serializers for whichever
         // backend assemblies the consuming compilation references.
         //
         // Every step carries value-only data: a ValueObjectModel per type and three backend
@@ -91,8 +91,10 @@ public sealed class SerializerGenerator : IIncrementalGenerator
         var valueObjectModels = context.SyntaxProvider
             .ForAttributeWithMetadataName(
                 "ZeroAlloc.ValueObjects.ValueObjectAttribute",
+                // ZeroAlloc.ValueObjects allows the attribute on classes and structs, records
+                // included; the emitters repeat whichever declaration kind the type has.
                 predicate: static (node, _) =>
-                    node is StructDeclarationSyntax || node is RecordDeclarationSyntax,
+                    node is StructDeclarationSyntax || node is ClassDeclarationSyntax || node is RecordDeclarationSyntax,
                 transform: static (ctx, _) => ctx.TargetSymbol is INamedTypeSymbol candidate
                     ? ModelExtractor.TryGetTransparentValueObject(candidate)
                     : null)
@@ -117,19 +119,19 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             if (backendFlags.SystemTextJson)
             {
                 var stjSource = ValueObjectEmitter.EmitSystemTextJsonConverter(model);
-                sourceCtx.AddSource($"{model.TypeName}SystemTextJsonConverter.g.cs", stjSource);
+                sourceCtx.AddSource(ValueObjectEmitter.HintName(model, "SystemTextJsonConverter"), stjSource);
             }
 
             if (backendFlags.MessagePack)
             {
                 var mpSource = ValueObjectEmitter.EmitMessagePackFormatter(model);
-                sourceCtx.AddSource($"{model.TypeName}MessagePackFormatter.g.cs", mpSource);
+                sourceCtx.AddSource(ValueObjectEmitter.HintName(model, "MessagePackFormatter"), mpSource);
             }
 
             if (backendFlags.MemoryPack)
             {
                 var mpkSource = ValueObjectEmitter.EmitMemoryPackFormatter(model);
-                sourceCtx.AddSource($"{model.TypeName}MemoryPackFormatter.g.cs", mpkSource);
+                sourceCtx.AddSource(ValueObjectEmitter.HintName(model, "MemoryPackFormatter"), mpkSource);
             }
         });
 

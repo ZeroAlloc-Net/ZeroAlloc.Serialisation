@@ -7,7 +7,8 @@ namespace ZeroAlloc.Serialisation.Generator;
 
 /// <summary>
 /// Emits transparent serializers for <c>[ValueObject]</c>-decorated
-/// single-property partial structs across the three supported backends
+/// single-property partial types, structs and classes, top-level or nested,
+/// across the three supported backends
 /// (System.Text.Json, MessagePack, MemoryPack). Each emission method is
 /// gated by a check on the consuming compilation's assembly references —
 /// adopters who don't reference a given backend package pay zero code-gen
@@ -42,16 +43,98 @@ internal static class ValueObjectEmitter
             string.Equals(a.Name, assemblyName, StringComparison.Ordinal));
 
     /// <summary>
-    /// Emits a JsonConverter&lt;T&gt; for the value-object and a partial-struct
-    /// extension carrying [JsonConverter(typeof(...))] so System.Text.Json picks
-    /// it up automatically without explicit registration.
+    /// The file name the per-type output for <paramref name="model"/> is added under. A nested
+    /// type carries its containing types, so two nested types with the same simple name in
+    /// different containers do not collide.
     /// </summary>
+    internal static string HintName(ValueObjectModel model, string suffix) =>
+        $"{HintNamePrefix(model)}{suffix}.g.cs";
+
+    private static string HintNamePrefix(ValueObjectModel model)
+    {
+        if (!model.IsNested) return model.TypeName;
+
+        var sb = new System.Text.StringBuilder();
+        foreach (var containing in model.ContainingTypes)
+        {
+            sb.Append(containing.Name);
+            if (containing.TypeParameters.Length > 0)
+            {
+                // Hint names cannot hold '<' or '>'; use the metadata arity suffix instead.
+                sb.Append('`').Append(containing.TypeParameters.Count(static c => c == ',') + 1);
+            }
+            sb.Append('.');
+        }
+        return sb.Append(model.TypeName).ToString();
+    }
+
+    /// <summary>
+    /// The start of a partial declaration of the value object, such as
+    /// <c>public readonly partial struct CustomerId</c>. Every part of a partial type must
+    /// agree on class, record class, struct or record struct, and on accessibility when it
+    /// states one.
+    /// </summary>
+    private static string PartialDeclaration(ValueObjectModel model)
+    {
+        var readonlyKeyword = model.IsReadOnly ? "readonly " : "";
+        return $"{model.Accessibility} {readonlyKeyword}partial {model.DeclarationKeyword} {model.TypeName}";
+    }
+
+    /// <summary>
+    /// The accessibility of the converter or formatter emitted next to the value object. It is
+    /// internal, or narrower when the value object is: a converter must not be more accessible
+    /// than the type in its signatures.
+    /// </summary>
+    private static string SiblingAccessibility(ValueObjectModel model) => model.Accessibility switch
+    {
+        "private" or "protected" or "private protected" => model.Accessibility,
+        _ => "internal",
+    };
+
+    /// <summary>
+    /// Wraps <paramref name="body"/> in partial declarations of the value object's containing
+    /// types, outermost first, so the partial part and its sibling converter land inside the
+    /// same containing type as the user's declaration. A top-level type's body is returned
+    /// unchanged.
+    /// </summary>
+    private static string WrapInContainingTypes(ValueObjectModel model, string body)
+    {
+        var containing = model.ContainingTypes.ToArray();
+        for (var i = containing.Length - 1; i >= 0; i--)
+        {
+            var type = containing[i];
+            var sb = new System.Text.StringBuilder();
+            sb.Append(type.Accessibility).Append(' ').Append(type.Modifiers).Append("partial ")
+                .Append(type.DeclarationKeyword).Append(' ').Append(type.Name).Append(type.TypeParameters).Append('\n');
+            sb.Append("{\n");
+            // The templates carry the line endings of this source file, so a blank line may be
+            // a lone '\r'. Indenting it would leave trailing whitespace.
+            foreach (var line in body.TrimEnd('\n').Split('\n'))
+            {
+                if (line.Length > 0 && line != "\r") sb.Append("    ");
+                sb.Append(line).Append('\n');
+            }
+            sb.Append("}\n");
+            body = sb.ToString();
+        }
+        return body;
+    }
+
+    /// <summary>
+    /// Emits a JsonConverter&lt;T&gt; for the value-object and a partial declaration of the
+    /// type carrying [JsonConverter(typeof(...))] so System.Text.Json picks it up automatically
+    /// without explicit registration. A nested type's converter is nested next to it, which
+    /// keeps a private nested type reachable.
+    /// </summary>
+    /// <remarks>
+    /// Reference types need no null handling here: <c>JsonConverter&lt;T&gt;.HandleNull</c> is
+    /// false for them, so System.Text.Json writes and reads <c>null</c> itself and never calls
+    /// the converter with it.
+    /// </remarks>
     internal static string EmitSystemTextJsonConverter(ValueObjectModel model)
     {
         var typeName = model.TypeName;
         var ns = model.Namespace;
-        var typeKindKeyword = model.IsRecord ? "record struct" : "struct"; // V1 scope: structs only
-        var readonlyKeyword = model.IsReadOnly ? "readonly " : "";
         var (readMethod, writeMethod) = SystemTextJsonReadWriteForType(model);
         var converterName = $"{typeName}SystemTextJsonConverter";
 
@@ -64,20 +147,13 @@ internal static class ValueObjectEmitter
 
         var nsOpen = string.IsNullOrEmpty(ns) ? "" : $"namespace {ns};\n\n";
 
-        return $$"""
-            // <auto-generated/>
-            #nullable enable
-
-            using System;
-            using System.Text.Json;
-            using System.Text.Json.Serialization;
-
-            {{nsOpen}}[JsonConverter(typeof({{converterName}}))]
-            public {{readonlyKeyword}}partial {{typeKindKeyword}} {{typeName}}
+        var body = $$"""
+            [JsonConverter(typeof({{converterName}}))]
+            {{PartialDeclaration(model)}}
             {
             }
 
-            internal sealed class {{converterName}} : JsonConverter<{{typeName}}>
+            {{SiblingAccessibility(model)}} sealed class {{converterName}} : JsonConverter<{{typeName}}>
             {
                 public override {{typeName}} Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
                     => new {{typeName}}({{readMethod}});
@@ -86,6 +162,17 @@ internal static class ValueObjectEmitter
                     => writer.{{writeMethod}}({{writeArgExpr}});
             }
 
+            """;
+
+        return $$"""
+            // <auto-generated/>
+            #nullable enable
+
+            using System;
+            using System.Text.Json;
+            using System.Text.Json.Serialization;
+
+            {{nsOpen}}{{WrapInContainingTypes(model, body)}}
             """;
     }
 
@@ -119,7 +206,7 @@ internal static class ValueObjectEmitter
         sb.AppendLine("{");
         sb.AppendLine("    public static global::System.Text.Json.JsonSerializerOptions AddZeroAllocValueObjectConverters(this global::System.Text.Json.JsonSerializerOptions options)");
         sb.AppendLine("    {");
-        foreach (var type in valueObjects)
+        foreach (var type in ReachableFromNamespace(valueObjects))
         {
             var converterFqn = BuildConverterFqn(type);
             sb.AppendLine($"        options.Converters.Add(new {converterFqn}());");
@@ -155,7 +242,7 @@ internal static class ValueObjectEmitter
         sb.AppendLine();
         sb.AppendLine("    public global::System.Text.Json.Serialization.Metadata.JsonTypeInfo? GetTypeInfo(global::System.Type type, global::System.Text.Json.JsonSerializerOptions options)");
         sb.AppendLine("    {");
-        foreach (var type in valueObjects)
+        foreach (var type in ReachableFromNamespace(valueObjects))
         {
             var typeFqn = BuildTypeFqn(type);
             var converterFqn = BuildConverterFqn(type);
@@ -168,30 +255,46 @@ internal static class ValueObjectEmitter
         return sb.ToString();
     }
 
-    private static string BuildTypeFqn(ValueObjectModel type)
-    {
-        var ns = type.Namespace;
-        return string.IsNullOrEmpty(ns) ? $"global::{type.TypeName}" : $"global::{ns}.{type.TypeName}";
-    }
-
-    private static string BuildConverterFqn(ValueObjectModel type)
-    {
-        var ns = type.Namespace;
-        var converterName = $"{type.TypeName}SystemTextJsonConverter";
-        return string.IsNullOrEmpty(ns) ? $"global::{converterName}" : $"global::{ns}.{converterName}";
-    }
+    /// <summary>
+    /// The value objects the per-assembly registrar and resolvers can list. They live at
+    /// namespace level, so a type nested in a private or protected type, or in a generic type,
+    /// cannot be named there; such a type is still served by the attribute on its partial
+    /// declaration.
+    /// </summary>
+    private static System.Collections.Generic.IEnumerable<ValueObjectModel> ReachableFromNamespace(
+        System.Collections.Generic.IReadOnlyList<ValueObjectModel> valueObjects) =>
+        valueObjects.Where(static v => v.IsReachableFromNamespace);
 
     /// <summary>
-    /// Emits an IMessagePackFormatter&lt;T&gt; for the value-object plus a partial-struct
-    /// extension carrying [MessagePackFormatter(typeof(...))] so MessagePack-CSharp's
-    /// attribute-based resolver picks it up without explicit registration.
+    /// The <c>global::</c>-qualified name of <paramref name="memberName"/> declared where the
+    /// value object is: in its namespace, or in its innermost containing type.
+    /// </summary>
+    private static string BuildSiblingFqn(ValueObjectModel type, string memberName)
+    {
+        var sb = new System.Text.StringBuilder("global::");
+        if (!string.IsNullOrEmpty(type.Namespace)) sb.Append(type.Namespace).Append('.');
+        foreach (var containing in type.ContainingTypes)
+        {
+            sb.Append(containing.Name).Append('.');
+        }
+        return sb.Append(memberName).ToString();
+    }
+
+    private static string BuildTypeFqn(ValueObjectModel type) => BuildSiblingFqn(type, type.TypeName);
+
+    private static string BuildConverterFqn(ValueObjectModel type) =>
+        BuildSiblingFqn(type, $"{type.TypeName}SystemTextJsonConverter");
+
+    /// <summary>
+    /// Emits an IMessagePackFormatter&lt;T&gt; for the value-object plus a partial declaration
+    /// of the type carrying [MessagePackFormatter(typeof(...))] so MessagePack-CSharp's
+    /// attribute-based resolver picks it up without explicit registration. A reference type's
+    /// formatter writes nil for null and reads nil back as null.
     /// </summary>
     internal static string EmitMessagePackFormatter(ValueObjectModel model)
     {
         var typeName = model.TypeName;
         var ns = model.Namespace;
-        var typeKindKeyword = model.IsRecord ? "record struct" : "struct";
-        var readonlyKeyword = model.IsReadOnly ? "readonly " : "";
         var (readMethod, writeArgFormat) = MessagePackReadWriteForType(model);
         // WriteArgFormat now carries a full C# statement template (e.g. "writer.Write({0})"
         // or "MessagePackSerializer.Serialize<T>(ref writer, {0}, options)") — the {0}
@@ -203,6 +306,49 @@ internal static class ValueObjectEmitter
 
         var nsOpen = string.IsNullOrEmpty(ns) ? "" : $"namespace {ns};\n\n";
 
+        // MessagePack's own reference-type formatters implement IMessagePackFormatter<T?>,
+        // since null is a value they write and read.
+        var formatter = model.IsValueType
+            ? $$"""
+                {{SiblingAccessibility(model)}} sealed class {{formatterName}} : IMessagePackFormatter<{{typeName}}>
+                {
+                    public void Serialize(ref MessagePackWriter writer, {{typeName}} value, MessagePackSerializerOptions options)
+                        => {{writeStatement}};
+
+                    public {{typeName}} Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
+                        => new {{typeName}}({{readMethod}});
+                }
+
+                """
+            : $$"""
+                {{SiblingAccessibility(model)}} sealed class {{formatterName}} : IMessagePackFormatter<{{typeName}}?>
+                {
+                    public void Serialize(ref MessagePackWriter writer, {{typeName}}? value, MessagePackSerializerOptions options)
+                    {
+                        if (value is null)
+                        {
+                            writer.WriteNil();
+                            return;
+                        }
+
+                        {{writeStatement}};
+                    }
+
+                    public {{typeName}}? Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
+                        => reader.TryReadNil() ? null : new {{typeName}}({{readMethod}});
+                }
+
+                """;
+
+        var body = $$"""
+            [MessagePackFormatter(typeof({{formatterName}}))]
+            {{PartialDeclaration(model)}}
+            {
+            }
+
+            {{formatter}}
+            """;
+
         return $$"""
             // <auto-generated/>
             #nullable enable
@@ -210,20 +356,7 @@ internal static class ValueObjectEmitter
             using MessagePack;
             using MessagePack.Formatters;
 
-            {{nsOpen}}[MessagePackFormatter(typeof({{formatterName}}))]
-            public {{readonlyKeyword}}partial {{typeKindKeyword}} {{typeName}}
-            {
-            }
-
-            internal sealed class {{formatterName}} : IMessagePackFormatter<{{typeName}}>
-            {
-                public void Serialize(ref MessagePackWriter writer, {{typeName}} value, MessagePackSerializerOptions options)
-                    => {{writeStatement}};
-
-                public {{typeName}} Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
-                    => new {{typeName}}({{readMethod}});
-            }
-
+            {{nsOpen}}{{WrapInContainingTypes(model, body)}}
             """;
     }
 
@@ -266,12 +399,14 @@ internal static class ValueObjectEmitter
         sb.AppendLine();
         sb.AppendLine("    private static object? GetFormatterUntyped(global::System.Type type)");
         sb.AppendLine("    {");
-        foreach (var type in valueObjects)
+        foreach (var type in ReachableFromNamespace(valueObjects))
         {
             var typeFqn = BuildTypeFqn(type);
             var formatterFqn = BuildFormatterFqn(type);
             sb.AppendLine($"        if (type == typeof({typeFqn}))");
             sb.AppendLine($"            return new {formatterFqn}();");
+            // A reference type has no Nullable<T>; its formatter writes and reads nil itself.
+            if (!type.IsValueType) continue;
             // Nullable<VO> members make MessagePack ask for a formatter of the nullable type.
             // Without this arm the lookup falls through to DynamicGenericResolver, which builds
             // NullableFormatter<VO> by reflection; NativeAOT never compiled that instantiation,
@@ -303,12 +438,8 @@ internal static class ValueObjectEmitter
         return sb.ToString();
     }
 
-    private static string BuildFormatterFqn(ValueObjectModel type)
-    {
-        var ns = type.Namespace;
-        var formatterName = $"{type.TypeName}MessagePackFormatter";
-        return string.IsNullOrEmpty(ns) ? $"global::{formatterName}" : $"global::{ns}.{formatterName}";
-    }
+    private static string BuildFormatterFqn(ValueObjectModel type) =>
+        BuildSiblingFqn(type, $"{type.TypeName}MessagePackFormatter");
 
     /// <summary>
     /// Emits a MemoryPackFormatter&lt;T&gt; for the value-object plus a module
@@ -344,14 +475,58 @@ internal static class ValueObjectEmitter
 
         var nsOpen = string.IsNullOrEmpty(ns) ? "" : $"namespace {ns};\n\n";
 
-        return $$"""
-            // <auto-generated/>
-            #nullable enable
+        // A struct keeps the bare underlying value on the wire. A reference type needs a
+        // distinct encoding for null, so it uses MemoryPack's own object layout: the null
+        // object header for null, otherwise a one-member object header and the value. That is
+        // the layout MemoryPack itself writes for a [MemoryPackable] class with one member.
+        var formatter = model.IsValueType
+            ? $$"""
+                {{SiblingAccessibility(model)}} sealed class {{formatterName}} : MemoryPackFormatter<{{typeName}}>
+                {
+                    public override void Serialize<TBufferWriter>(ref MemoryPackWriter<TBufferWriter> writer, scoped ref {{typeName}} value)
+                        => writer.WriteValue<{{underlyingFqn}}>(value.{{model.UnderlyingPropertyName}});
 
-            using System.Runtime.CompilerServices;
-            using MemoryPack;
+                    public override void Deserialize(ref MemoryPackReader reader, scoped ref {{typeName}} value)
+                        => value = new {{typeName}}(reader.ReadValue<{{underlyingFqn}}>()!);
+                }
 
-            {{nsOpen}}internal static class {{registrarName}}
+                """
+            : $$"""
+                {{SiblingAccessibility(model)}} sealed class {{formatterName}} : MemoryPackFormatter<{{typeName}}>
+                {
+                    public override void Serialize<TBufferWriter>(ref MemoryPackWriter<TBufferWriter> writer, scoped ref {{typeName}}? value)
+                    {
+                        if (value is null)
+                        {
+                            writer.WriteNullObjectHeader();
+                            return;
+                        }
+
+                        writer.WriteObjectHeader(1);
+                        writer.WriteValue<{{underlyingFqn}}>(value.{{model.UnderlyingPropertyName}});
+                    }
+
+                    public override void Deserialize(ref MemoryPackReader reader, scoped ref {{typeName}}? value)
+                    {
+                        if (!reader.TryReadObjectHeader(out var memberCount))
+                        {
+                            value = null;
+                            return;
+                        }
+
+                        if (memberCount != 1)
+                        {
+                            MemoryPackSerializationException.ThrowInvalidPropertyCount(1, memberCount);
+                        }
+
+                        value = new {{typeName}}(reader.ReadValue<{{underlyingFqn}}>()!);
+                    }
+                }
+
+                """;
+
+        var body = $$"""
+            internal static class {{registrarName}}
             {
                 [ModuleInitializer]
                 internal static void Register()
@@ -363,15 +538,17 @@ internal static class ValueObjectEmitter
                 }
             }
 
-            internal sealed class {{formatterName}} : MemoryPackFormatter<{{typeName}}>
-            {
-                public override void Serialize<TBufferWriter>(ref MemoryPackWriter<TBufferWriter> writer, scoped ref {{typeName}} value)
-                    => writer.WriteValue<{{underlyingFqn}}>(value.{{model.UnderlyingPropertyName}});
+            {{formatter}}
+            """;
 
-                public override void Deserialize(ref MemoryPackReader reader, scoped ref {{typeName}} value)
-                    => value = new {{typeName}}(reader.ReadValue<{{underlyingFqn}}>()!);
-            }
+        return $$"""
+            // <auto-generated/>
+            #nullable enable
 
+            using System.Runtime.CompilerServices;
+            using MemoryPack;
+
+            {{nsOpen}}{{WrapInContainingTypes(model, body)}}
             """;
     }
 

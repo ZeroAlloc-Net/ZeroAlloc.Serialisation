@@ -1,6 +1,6 @@
 namespace ZeroAlloc.Serialisation.AotSmoke
 {
-    [MemoryPack.MemoryPackable]
+    [global::MemoryPack.MemoryPackable]
     [ZeroAllocSerializable(SerializationFormat.MemoryPack)]
     public sealed partial class MpMessage
     {

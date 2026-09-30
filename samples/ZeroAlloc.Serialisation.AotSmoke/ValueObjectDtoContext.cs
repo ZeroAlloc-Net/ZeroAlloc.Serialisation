@@ -9,4 +9,5 @@ namespace ZeroAlloc.Serialisation.AotSmoke;
 // regressions in the resolver path.
 [JsonSerializable(typeof(ValueObjectDto))]
 [JsonSerializable(typeof(ValueObjectNullableDto))]
+[JsonSerializable(typeof(ValueObjectShapesDto))]
 internal partial class ValueObjectDtoContext : JsonSerializerContext { }

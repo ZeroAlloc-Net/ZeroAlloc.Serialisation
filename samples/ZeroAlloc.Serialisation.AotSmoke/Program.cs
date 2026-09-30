@@ -369,16 +369,104 @@ catch (Exception ex)
     valueTypeFailures.Add($"stj int? threw {ex.GetType().Name}: {ex.Message}");
 }
 
+// Reference-type and nested [ValueObject] shapes, #177: a class, a record class, a struct
+// nested in a static class and a record class nested two levels deep, through every backend,
+// with values and with null for the reference types.
+var shapeFailures = new System.Collections.Generic.List<string>();
+
+var fullShapes = new ValueObjectShapesDto(
+    new ValueObjectClassId(1), new ValueObjectRecordName("n"), new ValueObjectContainer.NestedId(2), new ValueObjectContainer.Inner.DeepName("d"));
+var emptyShapes = new ValueObjectShapesDto(null, null, new ValueObjectContainer.NestedId(3), null);
+
+static bool SameShapes(ValueObjectShapesDto? a, ValueObjectShapesDto b) =>
+    a is not null
+    && a.Id?.Value == b.Id?.Value
+    && string.Equals(a.Name?.Value, b.Name?.Value, StringComparison.Ordinal)
+    && a.Nested.Value == b.Nested.Value
+    && string.Equals(a.Deep?.Value, b.Deep?.Value, StringComparison.Ordinal);
+
+try
+{
+    foreach (var (shapes, expected) in new[]
+             {
+                 (fullShapes, "{\"Id\":1,\"Name\":\"n\",\"Nested\":2,\"Deep\":\"d\"}"),
+                 (emptyShapes, "{\"Id\":null,\"Name\":null,\"Nested\":3,\"Deep\":null}"),
+             })
+    {
+        var json = JsonSerializer.Serialize(shapes, customContext.ValueObjectShapesDto);
+        if (!string.Equals(json, expected, StringComparison.Ordinal))
+            shapeFailures.Add($"stj shapes wire={json}");
+        if (!SameShapes(JsonSerializer.Deserialize(json, customContext.ValueObjectShapesDto), shapes))
+            shapeFailures.Add($"stj shapes round-trip mismatch for {json}");
+    }
+}
+catch (Exception ex)
+{
+    shapeFailures.Add($"stj shapes threw {ex.GetType().Name}: {ex.Message}");
+}
+
+try
+{
+    foreach (var (shapes, expected) in new[]
+             {
+                 (fullShapes, "[1,\"n\",2,\"d\"]"),
+                 (emptyShapes, "[null,null,3,null]"),
+             })
+    {
+        var dtoIn = new ValueObjectShapesMpDto { Id = shapes.Id, Name = shapes.Name, Nested = shapes.Nested, Deep = shapes.Deep };
+        var bytes = global::MessagePack.MessagePackSerializer.Serialize(dtoIn, mpOptions);
+        var json = global::MessagePack.MessagePackSerializer.ConvertToJson(bytes);
+        if (!string.Equals(json, expected, StringComparison.Ordinal))
+            shapeFailures.Add($"messagepack shapes wire={json}");
+        var back = global::MessagePack.MessagePackSerializer.Deserialize<ValueObjectShapesMpDto>(bytes, mpOptions);
+        if (back is null || !SameShapes(new ValueObjectShapesDto(back.Id, back.Name, back.Nested, back.Deep), shapes))
+            shapeFailures.Add($"messagepack shapes round-trip mismatch for {json}");
+    }
+}
+catch (Exception ex)
+{
+    shapeFailures.Add($"messagepack shapes threw {ex.GetType().Name}: {ex.Message}");
+}
+
+try
+{
+    foreach (var shapes in new[] { fullShapes, emptyShapes })
+    {
+        var dtoIn = new ValueObjectShapesMemoryPackDto { Id = shapes.Id, Name = shapes.Name, Nested = shapes.Nested, Deep = shapes.Deep };
+        var bytes = global::MemoryPack.MemoryPackSerializer.Serialize(dtoIn);
+        var back = global::MemoryPack.MemoryPackSerializer.Deserialize<ValueObjectShapesMemoryPackDto>(bytes);
+        if (back is null || !SameShapes(new ValueObjectShapesDto(back.Id, back.Name, back.Nested, back.Deep), shapes))
+            shapeFailures.Add($"memorypack shapes round-trip mismatch, wire={Convert.ToHexString(bytes)}");
+    }
+
+    // Standalone reference-type value objects: null has its own encoding.
+    var nullBytes = global::MemoryPack.MemoryPackSerializer.Serialize<ValueObjectClassId?>(null);
+    if (nullBytes.Length != 1 || nullBytes[0] != global::MemoryPack.MemoryPackCode.NullObject)
+        shapeFailures.Add($"memorypack null class VO wire={Convert.ToHexString(nullBytes)}");
+    if (global::MemoryPack.MemoryPackSerializer.Deserialize<ValueObjectClassId?>(nullBytes) is not null)
+        shapeFailures.Add("memorypack null class VO did not read back as null");
+}
+catch (Exception ex)
+{
+    shapeFailures.Add($"memorypack shapes threw {ex.GetType().Name}: {ex.Message}");
+}
+
+var shapesOk = shapeFailures.Count == 0;
+if (shapesOk)
+{
+    Console.WriteLine("AOT smoke: value-object shapes OK (class, record class, nested, nested in nested x STJ, MessagePack, MemoryPack)");
+}
+
 var valueTypesOk = valueTypeFailures.Count == 0;
 if (valueTypesOk)
 {
     Console.WriteLine("AOT smoke: value types OK (struct serializers x3 + dispatcher, nullable VO STJ + MessagePack, SystemTextJsonSerializer<int?>)");
 }
 
-var ok = v0Ok && v1Ok && v2Ok && underlyingOk && valueTypesOk;
+var ok = v0Ok && v1Ok && v2Ok && underlyingOk && valueTypesOk && shapesOk;
 if (!ok)
 {
-    Console.WriteLine($"AOT smoke: FAIL (v0={v0Ok}, v1.resolver={resolverWired}, v1.wire={bareIntegerWire}, v1.roundTrip={roundTrip}, v2.bareInt={mpBareInteger}, v2.roundTrip={mpRoundTrip}, underlying={underlyingOk}, valueTypes={valueTypesOk})");
+    Console.WriteLine($"AOT smoke: FAIL (v0={v0Ok}, v1.resolver={resolverWired}, v1.wire={bareIntegerWire}, v1.roundTrip={roundTrip}, v2.bareInt={mpBareInteger}, v2.roundTrip={mpRoundTrip}, underlying={underlyingOk}, valueTypes={valueTypesOk}, shapes={shapesOk})");
     Console.WriteLine($"  dtoJson={dtoJson}");
     Console.WriteLine($"  mpJson={mpJson}");
     foreach (var failure in underlyingFailures)
@@ -388,6 +476,10 @@ if (!ok)
     foreach (var failure in valueTypeFailures)
     {
         Console.WriteLine($"  valueTypes: {failure}");
+    }
+    foreach (var failure in shapeFailures)
+    {
+        Console.WriteLine($"  shapes: {failure}");
     }
     return 1;
 }
