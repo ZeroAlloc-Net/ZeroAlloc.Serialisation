@@ -87,7 +87,7 @@ public sealed partial class SerializerDispatcher : ISerializerDispatcher
 }
 ```
 
-The `partial` modifier allows adding hand-written cases for types that cannot be annotated.
+The `partial` modifier allows adding hand-written cases for types that cannot be annotated. Leave the accessibility modifier off your own part: the generated part is `public`, or `internal` when [`ZeroAllocGeneratedAccessibility`](dependency-injection.md#making-the-generated-registration-internal) is `Internal`.
 
 A companion `SerializerDispatcherExtensions.g.cs` is also emitted:
 
@@ -126,6 +126,8 @@ The `SerializationFormat` enum selects which backend API the generated code call
 ## Supported Types
 
 Any non-generic `class` or `struct` decorated with `[ZeroAllocSerializable]`. The type does not need to be `partial` — `partial` is only required by the backend's own generator (e.g. MemoryPack).
+
+The generated names use the type's name: `{TypeName}Serializer` and `Add{TypeName}Serializer`, in the type's namespace. When two serializable types in one namespace have the same name, such as the nested types `A.Inner` and `B.Inner`, both get names qualified with their namespace and containing types, dots replaced by underscores: `Demo_A_InnerSerializer` and `AddDemo_A_InnerSerializer`. Every other type keeps its plain name.
 
 ## Closed Generic Types
 
@@ -181,6 +183,7 @@ internal partial class AppJsonContext : JsonSerializerContext { }
 | `ZASZ009` | Error | A type is declared serializable more than once. Only the first declaration generates. |
 | `ZASZ010` | Error | `[ZeroAllocSerializable(typeof(...), format)]` is on a type declaration, or `[ZeroAllocSerializable(format)]` is on the assembly. |
 | `ZASZ011` | Error | A closed generic type would get the same generated names as another serializable type in the same namespace. |
+| `ZASZ012` | Error | The `ZeroAllocGeneratedAccessibility` MSBuild property is set to a value other than `Public` or `Internal`. See [Making the Generated Registration Internal](dependency-injection.md#making-the-generated-registration-internal). |
 
 ### ZASZ005: `[ValueObject]` type cannot get generated serializers
 

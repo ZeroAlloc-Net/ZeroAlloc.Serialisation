@@ -22,6 +22,8 @@ services.AddEnvelopeOfOrderSerializer();   // ISerializer<Envelope<Order>>
 
 See [Closed Generic Types](source-generator.md#closed-generic-types) for the naming rule.
 
+Two serializable types in one namespace with the same name, such as the nested types `A.Inner` and `B.Inner`, would get the same generated names. Those types, and only those, get names qualified with their namespace and containing types, dots replaced by underscores: `Demo.A.Inner` gets `Demo_A_InnerSerializer` and `AddDemo_A_InnerSerializer()`. Every other type keeps `Add{TypeName}Serializer`.
+
 ## Runtime Dispatch — `ISerializerDispatcher`
 
 The generator also emits one `SerializerDispatcher` class per assembly that covers **all** `[ZeroAllocSerializable]` types in that assembly. Register it with the generated `AddSerializerDispatcher()` extension:
@@ -48,6 +50,34 @@ public class MyEventSerializer(ISerializerDispatcher dispatcher)
 ```
 
 `ISerializerDispatcher.Serialize` allocates an intermediate `ArrayBufferWriter<byte>` buffer by design — this layer is intentionally allocation-tolerant to return a self-contained `ReadOnlyMemory<byte>`.
+
+## Making the Generated Registration Internal
+
+By default every entry point the generator emits is `public`: the `SerializerDispatcher` class, the `SerializerServiceCollectionExtensions` classes with `AddSerializerDispatcher()` and every `Add{TypeName}Serializer()`, and, for `[ValueObject]` types, `ValueObjectJsonConvertersExtensions` and `ValueObjectMessagePackFormattersExtensions`. That is the right default for an application, but usually wrong for a **library**:
+
+- It adds public API that registers the library's own serializers, which `PublicApiAnalyzers`-style tooling flags and which consumers should never call directly.
+- `SerializerDispatcher` is generated in the global namespace of every assembly that uses the generator. An application that references such a library and uses the generator itself sees two public `SerializerDispatcher` types and gets `CS0436`, which fails a build with `TreatWarningsAsErrors`. The same happens for `SerializerServiceCollectionExtensions` when both generate into one namespace.
+
+Set the `ZeroAllocGeneratedAccessibility` MSBuild property to make the generator emit `internal` instead:
+
+```xml
+<PropertyGroup>
+  <ZeroAllocGeneratedAccessibility>Internal</ZeroAllocGeneratedAccessibility>
+</PropertyGroup>
+```
+
+```csharp
+// Library: only AddOrdering() is public. The generated registrations are internal
+// implementation details called from inside the library.
+public static IServiceCollection AddOrdering(this IServiceCollection services)
+    => services.AddOrderCreatedSerializer().AddSerializerDispatcher();
+```
+
+- Allowed values are `Public` (the default when the property is unset or empty) and `Internal`, compared case-insensitively. Any other value is rejected with a **ZASZ012** error naming the property, the offending value and the allowed values, and the generator falls back to `Public`. See [Diagnostics](source-generator.md#diagnostics).
+- It applies to **every** generated entry point listed above. The generated `{TypeName}Serializer` classes are already `internal` regardless of this setting.
+- If you add your own part of `partial class SerializerDispatcher` or `SerializerServiceCollectionExtensions`, leave the accessibility modifier off it, so it takes whatever the generated part declares.
+- It is the **same property name** across every ZeroAlloc source-generator package — setting it once in a project's `.csproj` (or in a shared `Directory.Build.props`) covers all of them.
+- With the property unset or `Public`, generated output is unchanged from previous versions.
 
 ## Manual Registration
 

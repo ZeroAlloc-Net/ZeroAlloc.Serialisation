@@ -55,11 +55,37 @@ public sealed class SerializerGenerator : IIncrementalGenerator
         // [assembly: ZeroAllocSerializable(typeof(Envelope<Order>), format)] declares a closed
         // generic type. Duplicates and generated-name collisions span files, so the declarations
         // are settled together, then flow on one per type exactly like the type-level results.
-        var typeLevelNames = rawResults
+        var declaredTypeLevelNames = rawResults
             .Where(static r => r.Model is not null)
             .Select(static (r, _) => new Models.GeneratedName(r.Model!.Namespace, r.Model.TypeName, r.Model.FullTypeName))
-            .Collect()
+            .Collect();
+
+        // Same-named nested types in one namespace, such as A.Inner and B.Inner, would get the same
+        // generated names. The collect step finds them, and only they get qualified names; the set
+        // compares equal until it changes, so no other type's output reruns.
+        var typeLevelCollisions = declaredTypeLevelNames
+            .Select(static (names, _) => ModelExtractor.FindTypeLevelCollisions(names))
+            .WithTrackingName(TrackingNames.TypeLevelCollisions);
+
+        var typeLevelNames = declaredTypeLevelNames
+            .Combine(typeLevelCollisions)
+            .Select(static (pair, _) => ModelExtractor.QualifyOnCollision(pair.Left, pair.Right))
             .WithTrackingName(TrackingNames.TypeLevelNames);
+
+        // The org-wide ZeroAllocGeneratedAccessibility MSBuild property: public, the default, or
+        // internal for every generated entry point. An invalid value is ZASZ012, reported once.
+        var accessibility = context.AnalyzerConfigOptionsProvider
+            .Select(static (provider, _) => ModelExtractor.ResolveGeneratedAccessibility(provider))
+            .WithTrackingName(TrackingNames.GeneratedAccessibility);
+
+        context.RegisterSourceOutput(accessibility, static (ctx, option) =>
+        {
+            if (option.InvalidValue is not null)
+            {
+                ctx.ReportDiagnostic(Diagnostic.Create(
+                    SerializerDiagnostics.InvalidGeneratedAccessibility, Location.None, option.InvalidValue));
+            }
+        });
 
         var assemblyResults = context.SyntaxProvider
             .ForAttributeWithMetadataName(
@@ -85,7 +111,10 @@ public sealed class SerializerGenerator : IIncrementalGenerator
         var models = results
             .Where(static r => r.Model is not null)
             .Select(static (r, _) => r.Model!)
-            .WithTrackingName(TrackingNames.Models);
+            .WithTrackingName(TrackingNames.Models)
+            .Combine(typeLevelCollisions)
+            .Select(static (pair, _) => ModelExtractor.QualifyOnCollision(pair.Left, pair.Right))
+            .WithTrackingName(TrackingNames.QualifiedModels);
 
         var assemblyModels = assemblyResults
             .Where(static r => r.Model is not null)
@@ -93,17 +122,17 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             .WithTrackingName(TrackingNames.AssemblyModels);
 
         // Emit one serializer + DI extension per serializable type
-        context.RegisterSourceOutput(models, static (ctx, model) => EmitSerializer(ctx, model));
-        context.RegisterSourceOutput(assemblyModels, static (ctx, model) => EmitSerializer(ctx, model));
+        context.RegisterSourceOutput(models.Combine(accessibility), static (ctx, pair) => EmitSerializer(ctx, pair.Left, pair.Right));
+        context.RegisterSourceOutput(assemblyModels.Combine(accessibility), static (ctx, pair) => EmitSerializer(ctx, pair.Left, pair.Right));
 
         // Emit one dispatcher covering ALL serializable types in the assembly
         var allModels = models.Collect().WithTrackingName(TrackingNames.AllModels)
             .Combine(assemblyModels.Collect().WithTrackingName(TrackingNames.AllAssemblyModels))
             .Select(static (pair, _) => new Models.EquatableArray<Models.SerializerModel>(pair.Left.AddRange(pair.Right).ToArray()))
             .WithTrackingName(TrackingNames.DispatcherModels);
-        context.RegisterSourceOutput(allModels, static (ctx, all) =>
+        context.RegisterSourceOutput(allModels.Combine(accessibility), static (ctx, pair) =>
         {
-            DispatcherEmitter.Emit(ctx, ImmutableArray.Create(all.ToArray()));
+            DispatcherEmitter.Emit(ctx, ImmutableArray.Create(pair.Left.ToArray()), pair.Right.Keyword);
         });
 
         // V1: parallel discovery pass for [ZeroAlloc.ValueObjects.ValueObject]
@@ -195,18 +224,19 @@ public sealed class SerializerGenerator : IIncrementalGenerator
 
         var registrarInput = allValueObjectModels
             .Combine(backends)
+            .Combine(accessibility)
             .WithTrackingName(TrackingNames.ValueObjectRegistrarInput);
 
         context.RegisterSourceOutput(registrarInput, static (sourceCtx, pair) =>
         {
-            var (all, backendFlags) = pair;
+            var ((all, backendFlags), generatedAccessibility) = pair;
             if (all.IsEmpty) return;
 
             var detected = all.ToArray();
 
             if (backendFlags.SystemTextJson)
             {
-                var source = ValueObjectEmitter.EmitSystemTextJsonRegistrar(detected);
+                var source = ValueObjectEmitter.EmitSystemTextJsonRegistrar(detected, generatedAccessibility.Keyword);
                 sourceCtx.AddSource("ValueObjectJsonConvertersExtensions.g.cs", source);
 
                 // 2.3.2: alongside the registrar, emit an IJsonTypeInfoResolver
@@ -222,7 +252,7 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             // MessagePack.SourceGenerator interop gap. Same shape, single-file.
             if (backendFlags.MessagePack)
             {
-                var mpResolverSource = ValueObjectEmitter.EmitMessagePackResolver(detected);
+                var mpResolverSource = ValueObjectEmitter.EmitMessagePackResolver(detected, generatedAccessibility.Keyword);
                 sourceCtx.AddSource("ValueObjectMessagePackResolverExtensions.g.cs", mpResolverSource);
             }
         });
@@ -236,9 +266,10 @@ public sealed class SerializerGenerator : IIncrementalGenerator
         }
     }
 
-    private static void EmitSerializer(SourceProductionContext ctx, Models.SerializerModel model)
+    private static void EmitSerializer(
+        SourceProductionContext ctx, Models.SerializerModel model, Models.GeneratedAccessibility accessibility)
     {
         SerializerEmitter.Emit(ctx, model);
-        DiEmitter.Emit(ctx, model);
+        DiEmitter.Emit(ctx, model, accessibility.Keyword);
     }
 }

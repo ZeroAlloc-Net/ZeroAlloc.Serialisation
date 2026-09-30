@@ -70,6 +70,16 @@ internal sealed record AssemblyDeclaration(SerializerExtractionResult Result, st
 internal sealed record GeneratedName(string Namespace, string TypeName, string FullTypeName);
 
 /// <summary>
+/// The resolved value of the org-wide <c>ZeroAllocGeneratedAccessibility</c> MSBuild property: the
+/// C# accessibility keyword, <c>public</c> or <c>internal</c>, of every entry point the generator
+/// emits, and the raw value when it was invalid, so ZASZ012 is reported once with it.
+/// </summary>
+internal sealed record GeneratedAccessibility(string Keyword, string? InvalidValue)
+{
+    public static readonly GeneratedAccessibility Public = new("public", null);
+}
+
+/// <summary>
 /// Equatable, location-describing diagnostic payload that can cross the incremental pipeline boundary
 /// (Roslyn requires generator pipeline values to be equatable / cacheable).
 /// </summary>

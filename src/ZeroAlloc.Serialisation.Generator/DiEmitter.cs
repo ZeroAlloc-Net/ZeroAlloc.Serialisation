@@ -5,7 +5,7 @@ namespace ZeroAlloc.Serialisation.Generator;
 
 internal static class DiEmitter
 {
-    public static void Emit(SourceProductionContext ctx, SerializerModel model)
+    public static void Emit(SourceProductionContext ctx, SerializerModel model, string accessibility)
     {
         var ns = string.IsNullOrEmpty(model.Namespace)
             ? ""
@@ -18,7 +18,7 @@ internal static class DiEmitter
             using Microsoft.Extensions.DependencyInjection.Extensions;
             using ZeroAlloc.Serialisation;
 
-            {{ns}}public static partial class SerializerServiceCollectionExtensions
+            {{ns}}{{accessibility}} static partial class SerializerServiceCollectionExtensions
             {
                 public static IServiceCollection Add{{model.TypeName}}Serializer(
                     this IServiceCollection services)

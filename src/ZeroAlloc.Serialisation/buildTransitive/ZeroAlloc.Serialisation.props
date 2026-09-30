@@ -1,0 +1,19 @@
+<Project>
+  <!--
+    Makes the ZeroAllocGeneratedAccessibility MSBuild property visible to the generator as
+    build_property.ZeroAllocGeneratedAccessibility (see #185). The same property name is shared,
+    unqualified, across every ZeroAlloc generator package:
+
+      <PropertyGroup>
+        <ZeroAllocGeneratedAccessibility>Internal</ZeroAllocGeneratedAccessibility>
+      </PropertyGroup>
+
+    Unset or "Public" (the default) leaves every generated entry point public, byte-identical to
+    before #185. "Internal" emits the generated SerializerDispatcher, the
+    SerializerServiceCollectionExtensions classes and the value-object registration extensions
+    internal. Any other value is generator error ZASZ012. See docs/dependency-injection.md.
+  -->
+  <ItemGroup>
+    <CompilerVisibleProperty Include="ZeroAllocGeneratedAccessibility" />
+  </ItemGroup>
+</Project>
