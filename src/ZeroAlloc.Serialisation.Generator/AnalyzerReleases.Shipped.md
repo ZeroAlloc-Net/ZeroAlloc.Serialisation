@@ -25,3 +25,11 @@ ZASZ008 | ZeroAlloc.Serialisation | Error    | [assembly: ZeroAllocSerializable]
 ZASZ009 | ZeroAlloc.Serialisation | Error    | Type is declared serializable more than once
 ZASZ010 | ZeroAlloc.Serialisation | Error    | [ZeroAllocSerializable] form does not fit where it is applied
 ZASZ011 | ZeroAlloc.Serialisation | Error    | Closed generic type would get the same generated names as another serializable type
+
+## Release 2.5.1
+
+### New Rules
+
+Rule ID | Category                | Severity | Notes
+--------|-------------------------|----------|-----------------------------------------------------------------------------------
+ZASZ012 | ZeroAlloc.Serialisation | Error    | Invalid ZeroAllocGeneratedAccessibility value
