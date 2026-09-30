@@ -1,3 +1,1 @@
 #nullable enable
-ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute.Type.get -> System.Type?
-ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute.ZeroAllocSerializableAttribute(System.Type! type, ZeroAlloc.Serialisation.SerializationFormat format) -> void

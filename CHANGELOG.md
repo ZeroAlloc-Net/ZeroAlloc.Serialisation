@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.4.7...v2.5.0) (2026-09-30)
+
+
+### Features
+
+* declare closed generic types serializable with an assembly-level attribute ([#186](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/186)) ([22285a4](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/22285a4726c7ef6b4d3872ab07fa820016eab17c)), closes [#183](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/183)
+
+
+### Bug Fixes
+
+* generate compilable [ValueObject] serializers for record classes, classes and nested types ([85b2518](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/85b2518bfdc07751568935f37077889e270c1c38))
+* qualify generated hint names with the namespace so same-named types do not collide ([#181](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/181)) ([d9b1881](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/d9b1881d82e40cdee06c2da6ae78c722fb9fb337))
+* report ZASZ005 and ZASZ006 for [ValueObject] shapes that cannot be fully generated ([85b2518](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/85b2518bfdc07751568935f37077889e270c1c38))
+
 ## [2.4.7](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.4.6...v2.4.7) (2026-09-30)
 
 
