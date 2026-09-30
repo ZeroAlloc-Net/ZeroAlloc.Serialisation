@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.5.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.5.0...v2.5.1) (2026-09-30)
+
+
+### Bug Fixes
+
+* qualify colliding generated names and honour ZeroAllocGeneratedAccessibility ([#187](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/187)) ([bed58db](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/bed58db3fa9887c40ee8d33870e0511492730ff5)), closes [#185](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/185)
+
 ## [2.5.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.4.7...v2.5.0) (2026-09-30)
 
 
