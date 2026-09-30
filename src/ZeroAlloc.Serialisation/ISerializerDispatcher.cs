@@ -17,14 +17,17 @@ public interface ISerializerDispatcher
     /// <summary>Serializes <paramref name="value"/> using the serializer registered for <paramref name="type"/>.</summary>
     /// <param name="value">The object to serialize. Must be an instance of <paramref name="type"/>.</param>
     /// <param name="type">The exact runtime type to dispatch to. Must have been annotated with
-    /// <c>[ZeroAllocSerializable]</c> in the assembly where this dispatcher was generated.</param>
+    /// <c>[ZeroAllocSerializable]</c>, or for a closed generic type declared with
+    /// <c>[assembly: ZeroAllocSerializable(typeof(...), format)]</c>, in the assembly where this
+    /// dispatcher was generated.</param>
     /// <returns>A <see cref="ReadOnlyMemory{T}">ReadOnlyMemory&lt;byte&gt;</see> containing the serialized bytes.</returns>
     /// <exception cref="NotSupportedException">Thrown when no serializer is registered for <paramref name="type"/>.</exception>
     ReadOnlyMemory<byte> Serialize(object value, Type type);
 
     /// <summary>Deserializes <paramref name="data"/> to an instance of <paramref name="type"/>.</summary>
     /// <param name="data">The raw bytes to deserialize.</param>
-    /// <param name="type">The target type. Must have been annotated with <c>[ZeroAllocSerializable]</c>
+    /// <param name="type">The target type. Must have been annotated with <c>[ZeroAllocSerializable]</c>,
+    /// or for a closed generic type declared with <c>[assembly: ZeroAllocSerializable(typeof(...), format)]</c>,
     /// in the assembly where this dispatcher was generated.</param>
     /// <returns>The deserialized object, or <see langword="null"/> if the underlying serializer returns null.</returns>
     /// <exception cref="NotSupportedException">Thrown when no serializer is registered for <paramref name="type"/>.</exception>

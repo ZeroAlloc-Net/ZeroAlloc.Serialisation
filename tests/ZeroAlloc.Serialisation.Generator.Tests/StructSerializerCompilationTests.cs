@@ -94,7 +94,7 @@ public sealed class StructSerializerCompilationTests
         var serializer = generated.Single(t => t.FilePath.EndsWith("MemPointSerializer.g.cs", System.StringComparison.Ordinal));
         var text = serializer.GetText().ToString();
 
-        Assert.Contains("public Demo.MemPoint Deserialize(global::System.ReadOnlySpan<byte> buffer)", text, System.StringComparison.Ordinal);
+        Assert.Contains("public global::Demo.MemPoint Deserialize(global::System.ReadOnlySpan<byte> buffer)", text, System.StringComparison.Ordinal);
         Assert.DoesNotContain("Demo.MemPoint?", text, System.StringComparison.Ordinal);
     }
 

@@ -53,7 +53,7 @@ public sealed class RecordAndJsonBugTests
 
         var (generated, _) = Generate(source);
         Assert.Contains("WeatherResponseRecordSerializer", generated, System.StringComparison.Ordinal);
-        Assert.Contains("ISerializer<Demo.WeatherResponseRecord>", generated, System.StringComparison.Ordinal);
+        Assert.Contains("ISerializer<global::Demo.WeatherResponseRecord>", generated, System.StringComparison.Ordinal);
     }
 
     [Fact]

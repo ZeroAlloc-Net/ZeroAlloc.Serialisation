@@ -23,14 +23,14 @@ internal static class DiEmitter
                 public static IServiceCollection Add{{model.TypeName}}Serializer(
                     this IServiceCollection services)
                 {
-                    services.TryAddSingleton<ISerializer<{{model.FullTypeName}}>, {{model.TypeName}}Serializer>();
+                    services.TryAddSingleton<ISerializer<{{model.TypeRef}}>, {{model.TypeName}}Serializer>();
                     return services;
                 }
             }
             """;
 
-        // The full type name keeps same-named types in different namespaces apart; a repeated
-        // hint name makes Roslyn throw and drop the generator's whole output.
-        ctx.AddSource($"{model.FullTypeName}SerializerExtensions.g.cs", source);
+        // The hint name keeps same-named types in different namespaces, and every closed
+        // construction of a generic type, apart; see ModelExtractor.HintNameOf.
+        ctx.AddSource($"{model.HintName}SerializerExtensions.g.cs", source);
     }
 }

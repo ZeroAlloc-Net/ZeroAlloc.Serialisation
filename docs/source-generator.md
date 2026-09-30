@@ -69,7 +69,8 @@ public sealed partial class SerializerDispatcher : ISerializerDispatcher
             default:
                 throw new NotSupportedException(
                     $"No serializer registered for {type.FullName}. " +
-                    "Ensure the type is annotated with [ZeroAllocSerializable].");
+                    "Ensure the type is annotated with [ZeroAllocSerializable], or for a closed generic type, " +
+                    "declared with [assembly: ZeroAllocSerializable(typeof(...), format)].");
         }
         return __writer.WrittenMemory;
     }
@@ -80,7 +81,8 @@ public sealed partial class SerializerDispatcher : ISerializerDispatcher
         if (type == typeof(global::MyApp.OrderShipped)) return new global::MyApp.OrderShippedSerializer().Deserialize(data.Span);
         throw new NotSupportedException(
             $"No serializer registered for {type.FullName}. " +
-            "Ensure the type is annotated with [ZeroAllocSerializable].");
+            "Ensure the type is annotated with [ZeroAllocSerializable], or for a closed generic type, " +
+            "declared with [assembly: ZeroAllocSerializable(typeof(...), format)].");
     }
 }
 ```
@@ -123,18 +125,62 @@ The `SerializationFormat` enum selects which backend API the generated code call
 
 ## Supported Types
 
-Any `class` or `struct` decorated with `[ZeroAllocSerializable]`. The type does not need to be `partial` — `partial` is only required by the backend's own generator (e.g. MemoryPack).
+Any non-generic `class` or `struct` decorated with `[ZeroAllocSerializable]`. The type does not need to be `partial` — `partial` is only required by the backend's own generator (e.g. MemoryPack).
+
+## Closed Generic Types
+
+A generic type is serialized per closed construction: `Envelope<Order>` and `Envelope<Invoice>` are different types with different serializers. Declare each closed construction you serialize on the assembly, not on the generic declaration:
+
+```csharp
+[assembly: ZeroAllocSerializable(typeof(Envelope<Order>), SerializationFormat.MemoryPack)]
+[assembly: ZeroAllocSerializable(typeof(Pair<int, Order>), SerializationFormat.MemoryPack)]
+[assembly: ZeroAllocSerializable(typeof(Envelope<Pair<int, Order>>), SerializationFormat.MemoryPack)]
+
+[MemoryPackable]
+public partial class Envelope<T>
+{
+    public string MessageId { get; set; } = "";
+    public T? Body { get; set; }
+}
+```
+
+Each declaration gets exactly what a non-generic `[ZeroAllocSerializable]` type gets: a serializer, a DI registration method and a `SerializerDispatcher` entry. The generated code names the closed type directly, with no reflection and no runtime code generation. They go in the namespace of the generic definition, and their names are built from the simple names of the type and its type arguments: `Of` before the type arguments, `And` between them.
+
+| Declared type | Serializer class | DI registration |
+|---|---|---|
+| `Envelope<Order>` | `EnvelopeOfOrderSerializer` | `AddEnvelopeOfOrderSerializer()` |
+| `Pair<int, Order>` | `PairOfInt32AndOrderSerializer` | `AddPairOfInt32AndOrderSerializer()` |
+| `Envelope<Pair<int, Order>>` | `EnvelopeOfPairOfInt32AndOrderSerializer` | `AddEnvelopeOfPairOfInt32AndOrderSerializer()` |
+| `Envelope<int?>` | `EnvelopeOfNullableOfInt32Serializer` | `AddEnvelopeOfNullableOfInt32Serializer()` |
+| `Envelope<Order[]>` | `EnvelopeOfOrderArraySerializer` | `AddEnvelopeOfOrderArraySerializer()` |
+
+Built-in types use their runtime names, `Int32` for `int` and `String` for `string`, as System.Text.Json does. Two closed types whose names come out the same, such as `Envelope<Sales.Order>` and `Envelope<Billing.Order>`, get `ZASZ011`.
+
+The generic definition carries the backend's own attribute, `[MemoryPackable]` or `[MessagePackObject]`, as a non-generic type does. For System.Text.Json, list each closed construction on your `JsonSerializerContext`; the generator binds to the property System.Text.Json generates for it, `EnvelopeOrder` for `Envelope<Order>` and `PairInt32Order` for `Pair<int, Order>`, or the `TypeInfoPropertyName` you set:
+
+```csharp
+[JsonSerializable(typeof(Envelope<Order>))]
+[JsonSerializable(typeof(Pair<int, Order>))]
+internal partial class AppJsonContext : JsonSerializerContext { }
+```
+
+**MessagePack and NativeAOT.** For a generic `[MessagePackObject]` type, MessagePack's own source generator emits a resolver that builds the formatter with `Type.MakeGenericType`. NativeAOT reports it as `IL3050`, and a construction over a value type, such as `Pair<int, Order>`, fails at run time. This comes from MessagePack's generated code, not from the serializer this library generates, so closed generic types under MessagePack are safe on the JIT only. Use System.Text.Json or MemoryPack for closed generic types in a NativeAOT app. Tracked in [#184](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/184).
 
 ## Diagnostics
 
 | ID | Severity | Reported when |
 |---|---|---|
-| `ZASZ001` | Error | `[ZeroAllocSerializable]` is on an open generic type. |
+| `ZASZ001` | Error | `[ZeroAllocSerializable]` is on a generic type declaration. Declare its closed constructions on the assembly instead. |
 | `ZASZ002` | Error | The `SerializationFormat` value is unknown. |
 | `ZASZ003` | Warning | The type lacks the backend's own attribute, `[MemoryPackable]` or `[MessagePackObject]`. |
 | `ZASZ004` | Error | A `SystemTextJson` type has no `[JsonSerializable]` on a `JsonSerializerContext` in the compilation. |
 | `ZASZ005` | Error | A `[ValueObject]` type is generic, nested in a generic type, or file-local. |
 | `ZASZ006` | Warning | A `[ValueObject]` type sits inside a private or protected type, so no MemoryPack formatter can be registered. |
+| `ZASZ007` | Error | `[assembly: ZeroAllocSerializable]` names an open generic type, such as `typeof(Envelope<>)`. |
+| `ZASZ008` | Error | `[assembly: ZeroAllocSerializable]` names a non-generic type. Apply `[ZeroAllocSerializable(format)]` to the type itself. |
+| `ZASZ009` | Error | A type is declared serializable more than once. Only the first declaration generates. |
+| `ZASZ010` | Error | `[ZeroAllocSerializable(typeof(...), format)]` is on a type declaration, or `[ZeroAllocSerializable(format)]` is on the assembly. |
+| `ZASZ011` | Error | A closed generic type would get the same generated names as another serializable type in the same namespace. |
 
 ### ZASZ005: `[ValueObject]` type cannot get generated serializers
 

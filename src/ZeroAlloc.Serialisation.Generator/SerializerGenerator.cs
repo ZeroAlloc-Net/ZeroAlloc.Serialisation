@@ -52,14 +52,34 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             .Select(static (pair, _) => ModelExtractor.JoinWithContextMap(pair.Left, pair.Right))
             .WithTrackingName(TrackingNames.BoundResults);
 
+        // [assembly: ZeroAllocSerializable(typeof(Envelope<Order>), format)] declares a closed
+        // generic type. Duplicates and generated-name collisions span files, so the declarations
+        // are settled together, then flow on one per type exactly like the type-level results.
+        var typeLevelNames = rawResults
+            .Where(static r => r.Model is not null)
+            .Select(static (r, _) => new Models.GeneratedName(r.Model!.Namespace, r.Model.TypeName, r.Model.FullTypeName))
+            .Collect()
+            .WithTrackingName(TrackingNames.TypeLevelNames);
+
+        var assemblyResults = context.SyntaxProvider
+            .ForAttributeWithMetadataName(
+                AttributeFullName,
+                predicate: static (node, _) => node is CompilationUnitSyntax,
+                transform: static (ctx, ct) => ModelExtractor.ExtractAssemblyDeclarations(ctx, ct))
+            .Where(static declarations => !declarations.IsEmpty)
+            .WithTrackingName(TrackingNames.AssemblyDeclarations)
+            .Collect()
+            .Combine(typeLevelNames)
+            .Select(static (pair, _) => ModelExtractor.ResolveAssemblyDeclarations(pair.Left, pair.Right))
+            .WithTrackingName(TrackingNames.ResolvedAssemblyDeclarations)
+            .SelectMany(static (resolved, _) => resolved.ToArray())
+            .Combine(flattenedContextEntries)
+            .Select(static (pair, _) => ModelExtractor.JoinWithContextMap(pair.Left, pair.Right))
+            .WithTrackingName(TrackingNames.BoundAssemblyResults);
+
         // Report diagnostics (errors + warnings) for every extraction result.
-        context.RegisterSourceOutput(results, static (ctx, result) =>
-        {
-            foreach (var info in result.Diagnostics)
-            {
-                ctx.ReportDiagnostic(info.ToDiagnostic());
-            }
-        });
+        context.RegisterSourceOutput(results, static (ctx, result) => ReportDiagnostics(ctx, result));
+        context.RegisterSourceOutput(assemblyResults, static (ctx, result) => ReportDiagnostics(ctx, result));
 
         // Only emit code for results that produced a valid model (i.e. no blocking errors).
         var models = results
@@ -67,18 +87,23 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             .Select(static (r, _) => r.Model!)
             .WithTrackingName(TrackingNames.Models);
 
-        // Emit one serializer + DI extension per annotated type
-        context.RegisterSourceOutput(models, static (ctx, model) =>
-        {
-            SerializerEmitter.Emit(ctx, model);
-            DiEmitter.Emit(ctx, model);
-        });
+        var assemblyModels = assemblyResults
+            .Where(static r => r.Model is not null)
+            .Select(static (r, _) => r.Model!)
+            .WithTrackingName(TrackingNames.AssemblyModels);
 
-        // Emit one dispatcher covering ALL annotated types in the assembly
-        var allModels = models.Collect().WithTrackingName(TrackingNames.AllModels);
+        // Emit one serializer + DI extension per serializable type
+        context.RegisterSourceOutput(models, static (ctx, model) => EmitSerializer(ctx, model));
+        context.RegisterSourceOutput(assemblyModels, static (ctx, model) => EmitSerializer(ctx, model));
+
+        // Emit one dispatcher covering ALL serializable types in the assembly
+        var allModels = models.Collect().WithTrackingName(TrackingNames.AllModels)
+            .Combine(assemblyModels.Collect().WithTrackingName(TrackingNames.AllAssemblyModels))
+            .Select(static (pair, _) => new Models.EquatableArray<Models.SerializerModel>(pair.Left.AddRange(pair.Right).ToArray()))
+            .WithTrackingName(TrackingNames.DispatcherModels);
         context.RegisterSourceOutput(allModels, static (ctx, all) =>
         {
-            DispatcherEmitter.Emit(ctx, all);
+            DispatcherEmitter.Emit(ctx, ImmutableArray.Create(all.ToArray()));
         });
 
         // V1: parallel discovery pass for [ZeroAlloc.ValueObjects.ValueObject]
@@ -201,5 +226,19 @@ public sealed class SerializerGenerator : IIncrementalGenerator
                 sourceCtx.AddSource("ValueObjectMessagePackResolverExtensions.g.cs", mpResolverSource);
             }
         });
+    }
+
+    private static void ReportDiagnostics(SourceProductionContext ctx, Models.SerializerExtractionResult result)
+    {
+        foreach (var info in result.Diagnostics)
+        {
+            ctx.ReportDiagnostic(info.ToDiagnostic());
+        }
+    }
+
+    private static void EmitSerializer(SourceProductionContext ctx, Models.SerializerModel model)
+    {
+        SerializerEmitter.Emit(ctx, model);
+        DiEmitter.Emit(ctx, model);
     }
 }

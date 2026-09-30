@@ -35,21 +35,21 @@ public sealed class SerializerEmissionSnapshotTests
 
         namespace Demo;
 
-        internal sealed class MpBasicSerializer : ISerializer<Demo.MpBasic>
+        internal sealed class MpBasicSerializer : ISerializer<global::Demo.MpBasic>
         {
         {{TrimSuppress}}
         {{AotSuppress}}
-            public void Serialize(IBufferWriter<byte> writer, Demo.MpBasic value)
+            public void Serialize(IBufferWriter<byte> writer, global::Demo.MpBasic value)
             {
                 global::MemoryPack.MemoryPackSerializer.Serialize(writer, value);
             }
 
         {{TrimSuppress}}
         {{AotSuppress}}
-            public Demo.MpBasic? Deserialize(global::System.ReadOnlySpan<byte> buffer)
+            public global::Demo.MpBasic? Deserialize(global::System.ReadOnlySpan<byte> buffer)
             {
                 if (buffer.IsEmpty) return default;
-                return global::MemoryPack.MemoryPackSerializer.Deserialize<Demo.MpBasic>(buffer);
+                return global::MemoryPack.MemoryPackSerializer.Deserialize<global::Demo.MpBasic>(buffer);
             }
         }
         """;
@@ -65,21 +65,21 @@ public sealed class SerializerEmissionSnapshotTests
 
         namespace Demo;
 
-        internal sealed class MpRecSerializer : ISerializer<Demo.MpRec>
+        internal sealed class MpRecSerializer : ISerializer<global::Demo.MpRec>
         {
         {{TrimSuppress}}
         {{AotSuppress}}
-            public void Serialize(IBufferWriter<byte> writer, Demo.MpRec value)
+            public void Serialize(IBufferWriter<byte> writer, global::Demo.MpRec value)
             {
                 global::MemoryPack.MemoryPackSerializer.Serialize(writer, value);
             }
 
         {{TrimSuppress}}
         {{AotSuppress}}
-            public Demo.MpRec? Deserialize(global::System.ReadOnlySpan<byte> buffer)
+            public global::Demo.MpRec? Deserialize(global::System.ReadOnlySpan<byte> buffer)
             {
                 if (buffer.IsEmpty) return default;
-                return global::MemoryPack.MemoryPackSerializer.Deserialize<Demo.MpRec>(buffer);
+                return global::MemoryPack.MemoryPackSerializer.Deserialize<global::Demo.MpRec>(buffer);
             }
         }
         """;
@@ -97,23 +97,23 @@ public sealed class SerializerEmissionSnapshotTests
 
         namespace Demo;
 
-        internal sealed class MsgpBasicSerializer : ISerializer<Demo.MsgpBasic>
+        internal sealed class MsgpBasicSerializer : ISerializer<global::Demo.MsgpBasic>
         {
         {{TrimSuppress}}
         {{AotSuppress}}
-            public void Serialize(IBufferWriter<byte> writer, Demo.MsgpBasic value)
+            public void Serialize(IBufferWriter<byte> writer, global::Demo.MsgpBasic value)
             {
                 global::MessagePack.MessagePackSerializer.Serialize(writer, value);
             }
 
         {{TrimSuppress}}
         {{AotSuppress}}
-            public Demo.MsgpBasic? Deserialize(global::System.ReadOnlySpan<byte> buffer)
+            public global::Demo.MsgpBasic? Deserialize(global::System.ReadOnlySpan<byte> buffer)
             {
                 if (buffer.IsEmpty) return default;
                 // MessagePack 3.x has no Deserialize(ReadOnlySpan<byte>) overload — it requires ReadOnlySequence<byte>.
             // Converting from ReadOnlySpan<byte> requires a buffer copy; this allocation is unavoidable with this API.
-            return global::MessagePack.MessagePackSerializer.Deserialize<Demo.MsgpBasic>(new global::System.Buffers.ReadOnlySequence<byte>(buffer.ToArray()));
+            return global::MessagePack.MessagePackSerializer.Deserialize<global::Demo.MsgpBasic>(new global::System.Buffers.ReadOnlySequence<byte>(buffer.ToArray()));
             }
         }
         """;
@@ -129,23 +129,23 @@ public sealed class SerializerEmissionSnapshotTests
 
         namespace Demo;
 
-        internal sealed class MsgpRecSerializer : ISerializer<Demo.MsgpRec>
+        internal sealed class MsgpRecSerializer : ISerializer<global::Demo.MsgpRec>
         {
         {{TrimSuppress}}
         {{AotSuppress}}
-            public void Serialize(IBufferWriter<byte> writer, Demo.MsgpRec value)
+            public void Serialize(IBufferWriter<byte> writer, global::Demo.MsgpRec value)
             {
                 global::MessagePack.MessagePackSerializer.Serialize(writer, value);
             }
 
         {{TrimSuppress}}
         {{AotSuppress}}
-            public Demo.MsgpRec? Deserialize(global::System.ReadOnlySpan<byte> buffer)
+            public global::Demo.MsgpRec? Deserialize(global::System.ReadOnlySpan<byte> buffer)
             {
                 if (buffer.IsEmpty) return default;
                 // MessagePack 3.x has no Deserialize(ReadOnlySpan<byte>) overload — it requires ReadOnlySequence<byte>.
             // Converting from ReadOnlySpan<byte> requires a buffer copy; this allocation is unavoidable with this API.
-            return global::MessagePack.MessagePackSerializer.Deserialize<Demo.MsgpRec>(new global::System.Buffers.ReadOnlySequence<byte>(buffer.ToArray()));
+            return global::MessagePack.MessagePackSerializer.Deserialize<global::Demo.MsgpRec>(new global::System.Buffers.ReadOnlySequence<byte>(buffer.ToArray()));
             }
         }
         """;
@@ -163,15 +163,15 @@ public sealed class SerializerEmissionSnapshotTests
 
         namespace Demo;
 
-        internal sealed class StjBasicSerializer : ISerializer<Demo.StjBasic>
+        internal sealed class StjBasicSerializer : ISerializer<global::Demo.StjBasic>
         {
-            public void Serialize(IBufferWriter<byte> writer, Demo.StjBasic value)
+            public void Serialize(IBufferWriter<byte> writer, global::Demo.StjBasic value)
             {
                 using var _jw = new global::System.Text.Json.Utf8JsonWriter(writer);
                 global::System.Text.Json.JsonSerializer.Serialize(_jw, value, global::Demo.StjBasicContext.Default.StjBasic);
             }
 
-            public Demo.StjBasic? Deserialize(global::System.ReadOnlySpan<byte> buffer)
+            public global::Demo.StjBasic? Deserialize(global::System.ReadOnlySpan<byte> buffer)
             {
                 if (buffer.IsEmpty) return default;
                 return global::System.Text.Json.JsonSerializer.Deserialize(buffer, global::Demo.StjBasicContext.Default.StjBasic);
@@ -190,15 +190,15 @@ public sealed class SerializerEmissionSnapshotTests
 
         namespace Demo;
 
-        internal sealed class StjRecSerializer : ISerializer<Demo.StjRec>
+        internal sealed class StjRecSerializer : ISerializer<global::Demo.StjRec>
         {
-            public void Serialize(IBufferWriter<byte> writer, Demo.StjRec value)
+            public void Serialize(IBufferWriter<byte> writer, global::Demo.StjRec value)
             {
                 using var _jw = new global::System.Text.Json.Utf8JsonWriter(writer);
                 global::System.Text.Json.JsonSerializer.Serialize(_jw, value, global::Demo.StjRecContext.Default.StjRec);
             }
 
-            public Demo.StjRec? Deserialize(global::System.ReadOnlySpan<byte> buffer)
+            public global::Demo.StjRec? Deserialize(global::System.ReadOnlySpan<byte> buffer)
             {
                 if (buffer.IsEmpty) return default;
                 return global::System.Text.Json.JsonSerializer.Deserialize(buffer, global::Demo.StjRecContext.Default.StjRec);

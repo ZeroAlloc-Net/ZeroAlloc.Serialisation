@@ -451,6 +451,75 @@ catch (Exception ex)
     shapeFailures.Add($"memorypack shapes threw {ex.GetType().Name}: {ex.Message}");
 }
 
+// Closed generic types declared with [assembly: ZeroAllocSerializable(typeof(...), format)], #183:
+// Envelope<Order>, Pair<int, Order> and Envelope<Pair<int, Order>> under System.Text.Json and
+// MemoryPack, through the generated serializer and through the generated SerializerDispatcher,
+// which must pick the closed type by its runtime type with no reflection. MessagePack is not
+// here: for a generic [MessagePackObject] type, MessagePack's own source generator emits a
+// resolver that builds the formatter with MakeGenericType, which NativeAOT rejects with IL3050
+// whatever this library generates. See #184.
+var closedGenericFailures = new System.Collections.Generic.List<string>();
+
+static void CheckClosedGeneric<T>(
+    string label,
+    ISerializer<T> serializer,
+    ISerializerDispatcher dispatcher,
+    T value,
+    string? expectedWire,
+    Func<ReadOnlyMemory<byte>, string> render,
+    System.Collections.Generic.List<string> failures)
+    where T : notnull
+{
+    try
+    {
+        var buf = new ArrayBufferWriter<byte>();
+        serializer.Serialize(buf, value);
+        var wire = render(buf.WrittenMemory);
+        if (expectedWire is not null && !string.Equals(wire, expectedWire, StringComparison.Ordinal))
+            failures.Add($"{label} wire={wire}");
+        var back = serializer.Deserialize(buf.WrittenSpan);
+        if (!System.Collections.Generic.EqualityComparer<T>.Default.Equals(back, value))
+            failures.Add($"{label} round-trip={back}");
+
+        var dispatched = dispatcher.Serialize(value, typeof(T));
+        if (!dispatched.Span.SequenceEqual(buf.WrittenSpan))
+            failures.Add($"{label} dispatcher bytes differ: {render(dispatched)}");
+        if (dispatcher.Deserialize(dispatched, typeof(T)) is not T dispatchedBack
+            || !System.Collections.Generic.EqualityComparer<T>.Default.Equals(dispatchedBack, value))
+            failures.Add($"{label} dispatcher round-trip mismatch");
+    }
+    catch (Exception ex)
+    {
+        failures.Add($"{label} threw {ex.GetType().Name}: {ex.Message}");
+    }
+}
+
+static string JsonWire(ReadOnlyMemory<byte> bytes) => System.Text.Encoding.UTF8.GetString(bytes.Span);
+static string HexWire(ReadOnlyMemory<byte> bytes) => Convert.ToHexString(bytes.Span);
+
+CheckClosedGeneric("stj Envelope<Order>", new StjEnvelopeOfStjOrderSerializer(), dispatcher,
+    new StjEnvelope<StjOrder>("e-1", new StjOrder(7, "ada")),
+    "{\"MessageId\":\"e-1\",\"Body\":{\"Id\":7,\"Customer\":\"ada\"}}", JsonWire, closedGenericFailures);
+CheckClosedGeneric("stj Pair<int, Order>", new StjPairOfInt32AndStjOrderSerializer(), dispatcher,
+    new StjPair<int, StjOrder>(3, new StjOrder(9, "bob")),
+    "{\"Left\":3,\"Right\":{\"Id\":9,\"Customer\":\"bob\"}}", JsonWire, closedGenericFailures);
+CheckClosedGeneric("stj Envelope<Pair<int, Order>>", new StjEnvelopeOfStjPairOfInt32AndStjOrderSerializer(), dispatcher,
+    new StjEnvelope<StjPair<int, StjOrder>>("e-2", new StjPair<int, StjOrder>(4, new StjOrder(11, "cy"))),
+    "{\"MessageId\":\"e-2\",\"Body\":{\"Left\":4,\"Right\":{\"Id\":11,\"Customer\":\"cy\"}}}", JsonWire, closedGenericFailures);
+
+CheckClosedGeneric("memorypack Envelope<Order>", new MpEnvelopeOfMpOrderSerializer(), dispatcher,
+    new MpEnvelope<MpOrder>("e-1", new MpOrder(7, "ada")), null, HexWire, closedGenericFailures);
+CheckClosedGeneric("memorypack Pair<int, Order>", new MpPairOfInt32AndMpOrderSerializer(), dispatcher,
+    new MpPair<int, MpOrder>(3, new MpOrder(9, "bob")), null, HexWire, closedGenericFailures);
+CheckClosedGeneric("memorypack Envelope<Pair<int, Order>>", new MpEnvelopeOfMpPairOfInt32AndMpOrderSerializer(), dispatcher,
+    new MpEnvelope<MpPair<int, MpOrder>>("e-2", new MpPair<int, MpOrder>(4, new MpOrder(11, "cy"))), null, HexWire, closedGenericFailures);
+
+var closedGenericsOk = closedGenericFailures.Count == 0;
+if (closedGenericsOk)
+{
+    Console.WriteLine("AOT smoke: closed generics OK (Envelope<Order>, Pair<int, Order>, Envelope<Pair<int, Order>> x STJ, MemoryPack + dispatcher)");
+}
+
 var shapesOk = shapeFailures.Count == 0;
 if (shapesOk)
 {
@@ -463,10 +532,10 @@ if (valueTypesOk)
     Console.WriteLine("AOT smoke: value types OK (struct serializers x3 + dispatcher, nullable VO STJ + MessagePack, SystemTextJsonSerializer<int?>)");
 }
 
-var ok = v0Ok && v1Ok && v2Ok && underlyingOk && valueTypesOk && shapesOk;
+var ok = v0Ok && v1Ok && v2Ok && underlyingOk && valueTypesOk && shapesOk && closedGenericsOk;
 if (!ok)
 {
-    Console.WriteLine($"AOT smoke: FAIL (v0={v0Ok}, v1.resolver={resolverWired}, v1.wire={bareIntegerWire}, v1.roundTrip={roundTrip}, v2.bareInt={mpBareInteger}, v2.roundTrip={mpRoundTrip}, underlying={underlyingOk}, valueTypes={valueTypesOk}, shapes={shapesOk})");
+    Console.WriteLine($"AOT smoke: FAIL (v0={v0Ok}, v1.resolver={resolverWired}, v1.wire={bareIntegerWire}, v1.roundTrip={roundTrip}, v2.bareInt={mpBareInteger}, v2.roundTrip={mpRoundTrip}, underlying={underlyingOk}, valueTypes={valueTypesOk}, shapes={shapesOk}, closedGenerics={closedGenericsOk})");
     Console.WriteLine($"  dtoJson={dtoJson}");
     Console.WriteLine($"  mpJson={mpJson}");
     foreach (var failure in underlyingFailures)
@@ -480,6 +549,10 @@ if (!ok)
     foreach (var failure in shapeFailures)
     {
         Console.WriteLine($"  shapes: {failure}");
+    }
+    foreach (var failure in closedGenericFailures)
+    {
+        Console.WriteLine($"  closedGenerics: {failure}");
     }
     return 1;
 }

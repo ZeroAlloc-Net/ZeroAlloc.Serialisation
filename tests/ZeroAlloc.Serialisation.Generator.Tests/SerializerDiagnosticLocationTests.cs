@@ -41,6 +41,34 @@ public sealed class SerializerDiagnosticLocationTests
         [[|ZeroAllocSerializable(SerializationFormat.SystemTextJson)|]]
         public sealed class Orphan { public string V { get; set; } = ""; }
         """)]
+    [InlineData("ZASZ007", """
+        using ZeroAlloc.Serialisation;
+        [assembly: [|ZeroAllocSerializable(typeof(Demo.Envelope<>), SerializationFormat.MessagePack)|]]
+        namespace Demo { public sealed class Envelope<T> { } }
+        """)]
+    [InlineData("ZASZ008", """
+        using ZeroAlloc.Serialisation;
+        [assembly: [|ZeroAllocSerializable(typeof(Demo.Order), SerializationFormat.MessagePack)|]]
+        namespace Demo { public sealed class Order { } }
+        """)]
+    [InlineData("ZASZ009", """
+        using ZeroAlloc.Serialisation;
+        [assembly: ZeroAllocSerializable(typeof(Demo.Envelope<int>), SerializationFormat.SystemTextJson)]
+        [assembly: [|ZeroAllocSerializable(typeof(Demo.Envelope<int>), SerializationFormat.SystemTextJson)|]]
+        namespace Demo { public sealed class Envelope<T> { } }
+        """)]
+    [InlineData("ZASZ010", """
+        using ZeroAlloc.Serialisation;
+        [assembly: [|ZeroAllocSerializable(SerializationFormat.SystemTextJson)|]]
+        """)]
+    [InlineData("ZASZ011", """
+        using ZeroAlloc.Serialisation;
+        [assembly: ZeroAllocSerializable(typeof(Demo.Envelope<A.Order>), SerializationFormat.MemoryPack)]
+        [assembly: [|ZeroAllocSerializable(typeof(Demo.Envelope<B.Order>), SerializationFormat.MemoryPack)|]]
+        namespace Demo { public sealed class Envelope<T> { } }
+        namespace A { public sealed class Order { } }
+        namespace B { public sealed class Order { } }
+        """)]
     public void Diagnostic_IsReportedAtTheAttribute(string id, string marked)
     {
         var (source, span) = Parse(marked);

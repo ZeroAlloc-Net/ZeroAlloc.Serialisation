@@ -21,7 +21,7 @@ internal static class DispatcherEmitter
             "\n            ",
             models.Select(m =>
             {
-                var typeRef = $"global::{m.FullTypeName}";
+                var typeRef = m.TypeRef;
                 var serializerRef = string.IsNullOrEmpty(m.Namespace)
                     ? $"global::{m.TypeName}Serializer"
                     : $"global::{m.Namespace}.{m.TypeName}Serializer";
@@ -32,7 +32,7 @@ internal static class DispatcherEmitter
             "\n        ",
             models.Select(m =>
             {
-                var typeRef = $"global::{m.FullTypeName}";
+                var typeRef = m.TypeRef;
                 var serializerRef = string.IsNullOrEmpty(m.Namespace)
                     ? $"global::{m.TypeName}Serializer"
                     : $"global::{m.Namespace}.{m.TypeName}Serializer";
@@ -58,7 +58,8 @@ internal static class DispatcherEmitter
                         default:
                             throw new NotSupportedException(
                                 $"No serializer registered for {type.FullName}. " +
-                                "Ensure the type is annotated with [ZeroAllocSerializable].");
+                                "Ensure the type is annotated with [ZeroAllocSerializable], or for a closed generic type, " +
+                                "declared with [assembly: ZeroAllocSerializable(typeof(...), format)].");
                     }
                     return __writer.WrittenMemory;
                 }
@@ -69,7 +70,8 @@ internal static class DispatcherEmitter
                     {{deserializeCases}}
                     throw new NotSupportedException(
                         $"No serializer registered for {type.FullName}. " +
-                        "Ensure the type is annotated with [ZeroAllocSerializable].");
+                        "Ensure the type is annotated with [ZeroAllocSerializable], or for a closed generic type, " +
+                        "declared with [assembly: ZeroAllocSerializable(typeof(...), format)].");
                 }
             }
             """;
