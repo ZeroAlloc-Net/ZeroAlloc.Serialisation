@@ -37,9 +37,13 @@ public class ValueObjectDetectionTests
         Assert.Equal(
             new ValueObjectModel(
                 Namespace: "TestModels",
+                ContainingTypes: new EquatableArray<ContainingTypeModel>([]),
                 TypeName: "CustomerId",
-                IsRecord: false,
+                Accessibility: "public",
+                DeclarationKeyword: "struct",
+                IsValueType: true,
                 IsReadOnly: true,
+                IsReachableFromNamespace: true,
                 UnderlyingPropertyName: "Value",
                 UnderlyingSpecialType: SpecialType.System_Int32,
                 UnderlyingTypeDisplayName: "int",

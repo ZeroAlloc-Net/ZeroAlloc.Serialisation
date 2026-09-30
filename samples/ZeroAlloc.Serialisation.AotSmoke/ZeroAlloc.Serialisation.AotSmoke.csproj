@@ -48,6 +48,14 @@
     <ProjectReference Include="..\..\src\ZeroAlloc.Serialisation.MessagePack\ZeroAlloc.Serialisation.MessagePack.csproj"
                       SetTargetFramework="TargetFramework=net10.0"
                       UndefineProperties="PublishAot" />
+    <!--
+      Reference the ZA MemoryPack adapter so the value-object generator's ReferencesMemoryPack()
+      gate trips and every [ValueObject] fixture also gets a MemoryPack formatter, registered by
+      a module initializer. ValueObjectShapesMemoryPackDto round-trips them under NativeAOT.
+    -->
+    <ProjectReference Include="..\..\src\ZeroAlloc.Serialisation.MemoryPack\ZeroAlloc.Serialisation.MemoryPack.csproj"
+                      SetTargetFramework="TargetFramework=net10.0"
+                      UndefineProperties="PublishAot" />
     <ProjectReference Include="..\..\src\ZeroAlloc.Serialisation.Generator\ZeroAlloc.Serialisation.Generator.csproj"
                       OutputItemType="Analyzer"
                       ReferenceOutputAssembly="false"

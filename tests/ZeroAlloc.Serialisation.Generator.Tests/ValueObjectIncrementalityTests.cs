@@ -43,6 +43,7 @@ public sealed class ValueObjectIncrementalityTests
     // ZeroAlloc.Serialisation.Generator.TrackingNames.
     private static readonly string[] ValueObjectStepNames =
     [
+        "ValueObjectResults",
         "ValueObjectModels",
         "ValueObjectBackends",
         "ValueObjectInput",

@@ -37,4 +37,22 @@ internal static class SerializerDiagnostics
         category: Category,
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    public static readonly DiagnosticDescriptor ValueObjectCannotBeGenerated = new(
+        id: "ZASZ005",
+        title: "[ValueObject] type cannot get generated serializers",
+        messageFormat: "[ValueObject] type '{0}' gets no generated serializers because {1}",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "The generator extends a [ValueObject] type with a partial declaration and converters. A file-local type cannot be extended from another file, and a generic type, or a type nested in one, would need its converters created by reflection at run time, which is not NativeAOT-safe. Move the type out of the generic type, make it non-file-local, or write its converters by hand.");
+
+    public static readonly DiagnosticDescriptor ValueObjectMemoryPackNotRegistered = new(
+        id: "ZASZ006",
+        title: "MemoryPack formatter for a [ValueObject] in a private or protected type cannot be registered",
+        messageFormat: "The MemoryPack formatter for [ValueObject] type '{0}' cannot be registered because its containing type '{1}' is {2}; System.Text.Json and MessagePack serializers are still generated",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        description: "MemoryPack formatters are registered from a [ModuleInitializer], which must be accessible from the whole assembly. Inside a private or protected containing type it cannot be, so no MemoryPack formatter is generated. Make the containing types internal or public to get one.");
 }

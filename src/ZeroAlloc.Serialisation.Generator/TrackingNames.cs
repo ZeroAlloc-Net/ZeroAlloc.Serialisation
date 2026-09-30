@@ -11,6 +11,7 @@ internal static class TrackingNames
     public const string BoundResults = nameof(BoundResults);
     public const string Models = nameof(Models);
     public const string AllModels = nameof(AllModels);
+    public const string ValueObjectResults = nameof(ValueObjectResults);
     public const string ValueObjectModels = nameof(ValueObjectModels);
     public const string ValueObjectBackends = nameof(ValueObjectBackends);
     public const string ValueObjectInput = nameof(ValueObjectInput);
