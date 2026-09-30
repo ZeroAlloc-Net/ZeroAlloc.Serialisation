@@ -84,39 +84,52 @@ public sealed class SerializerGenerator : IIncrementalGenerator
         // V1: parallel discovery pass for [ZeroAlloc.ValueObjects.ValueObject]
         // partial structs. Emits transparent serializers for whichever
         // backend assemblies the consuming compilation references.
-        var valueObjectCandidates = context.SyntaxProvider
+        //
+        // Every step carries value-only data: a ValueObjectModel per type and three backend
+        // flags. Symbols or the Compilation would compare unequal on every edit and rerun
+        // every output below, and would keep old compilations alive.
+        var valueObjectModels = context.SyntaxProvider
             .ForAttributeWithMetadataName(
                 "ZeroAlloc.ValueObjects.ValueObjectAttribute",
                 predicate: static (node, _) =>
                     node is StructDeclarationSyntax || node is RecordDeclarationSyntax,
-                transform: static (ctx, _) => (INamedTypeSymbol)ctx.TargetSymbol);
+                transform: static (ctx, _) => ctx.TargetSymbol is INamedTypeSymbol candidate
+                    ? ModelExtractor.TryGetTransparentValueObject(candidate)
+                    : null)
+            .Where(static m => m is not null)
+            .Select(static (m, _) => m!)
+            .WithTrackingName(TrackingNames.ValueObjectModels);
 
-        var withCompilation = valueObjectCandidates.Combine(context.CompilationProvider);
+        // Reruns on every edit, but produces three bools that compare equal until the
+        // references change, so nothing downstream reruns.
+        var backends = context.CompilationProvider
+            .Select(static (compilation, _) => ValueObjectEmitter.DetectBackends(compilation))
+            .WithTrackingName(TrackingNames.ValueObjectBackends);
 
-        context.RegisterSourceOutput(withCompilation, static (sourceCtx, pair) =>
+        var perTypeInput = valueObjectModels
+            .Combine(backends)
+            .WithTrackingName(TrackingNames.ValueObjectInput);
+
+        context.RegisterSourceOutput(perTypeInput, static (sourceCtx, pair) =>
         {
-            var (candidate, compilation) = pair;
-            var detected = ModelExtractor.TryGetTransparentValueObject(candidate);
-            if (detected is null) return;
+            var (model, backendFlags) = pair;
 
-            var (type, underlyingProperty) = detected.Value;
-
-            if (ValueObjectEmitter.ReferencesSystemTextJson(compilation))
+            if (backendFlags.SystemTextJson)
             {
-                var stjSource = ValueObjectEmitter.EmitSystemTextJsonConverter(type, underlyingProperty);
-                sourceCtx.AddSource($"{type.Name}SystemTextJsonConverter.g.cs", stjSource);
+                var stjSource = ValueObjectEmitter.EmitSystemTextJsonConverter(model);
+                sourceCtx.AddSource($"{model.TypeName}SystemTextJsonConverter.g.cs", stjSource);
             }
 
-            if (ValueObjectEmitter.ReferencesMessagePack(compilation))
+            if (backendFlags.MessagePack)
             {
-                var mpSource = ValueObjectEmitter.EmitMessagePackFormatter(type, underlyingProperty);
-                sourceCtx.AddSource($"{type.Name}MessagePackFormatter.g.cs", mpSource);
+                var mpSource = ValueObjectEmitter.EmitMessagePackFormatter(model);
+                sourceCtx.AddSource($"{model.TypeName}MessagePackFormatter.g.cs", mpSource);
             }
 
-            if (ValueObjectEmitter.ReferencesMemoryPack(compilation))
+            if (backendFlags.MemoryPack)
             {
-                var mpkSource = ValueObjectEmitter.EmitMemoryPackFormatter(type, underlyingProperty);
-                sourceCtx.AddSource($"{type.Name}MemoryPackFormatter.g.cs", mpkSource);
+                var mpkSource = ValueObjectEmitter.EmitMemoryPackFormatter(model);
+                sourceCtx.AddSource($"{model.TypeName}MemoryPackFormatter.g.cs", mpkSource);
             }
         });
 
@@ -127,23 +140,23 @@ public sealed class SerializerGenerator : IIncrementalGenerator
         // doesn't see the [JsonConverter] attribute the per-type pipeline emits,
         // so without an explicit Converters.Add call the context-driven typeinfo
         // wins and the value-object serializes as {"value":N} instead of bare N.
-        var valueObjectsCollected = valueObjectCandidates.Collect();
-        var registrarInput = valueObjectsCollected.Combine(context.CompilationProvider);
+        var allValueObjectModels = valueObjectModels
+            .Collect()
+            .Select(static (all, _) => new Models.EquatableArray<Models.ValueObjectModel>(all.ToArray()))
+            .WithTrackingName(TrackingNames.AllValueObjectModels);
+
+        var registrarInput = allValueObjectModels
+            .Combine(backends)
+            .WithTrackingName(TrackingNames.ValueObjectRegistrarInput);
 
         context.RegisterSourceOutput(registrarInput, static (sourceCtx, pair) =>
         {
-            var (allCandidates, compilation) = pair;
+            var (all, backendFlags) = pair;
+            if (all.IsEmpty) return;
 
-            var detected = new System.Collections.Generic.List<(INamedTypeSymbol Type, IPropertySymbol UnderlyingProperty)>(allCandidates.Length);
-            foreach (var candidate in allCandidates)
-            {
-                var d = ModelExtractor.TryGetTransparentValueObject(candidate);
-                if (d is not null) detected.Add(d.Value);
-            }
+            var detected = all.ToArray();
 
-            if (detected.Count == 0) return;
-
-            if (ValueObjectEmitter.ReferencesSystemTextJson(compilation))
+            if (backendFlags.SystemTextJson)
             {
                 var source = ValueObjectEmitter.EmitSystemTextJsonRegistrar(detected);
                 sourceCtx.AddSource("ValueObjectJsonConvertersExtensions.g.cs", source);
@@ -159,7 +172,7 @@ public sealed class SerializerGenerator : IIncrementalGenerator
 
             // 2.3.3: MessagePack equivalent of the STJ resolver — closes the
             // MessagePack.SourceGenerator interop gap. Same shape, single-file.
-            if (ValueObjectEmitter.ReferencesMessagePack(compilation))
+            if (backendFlags.MessagePack)
             {
                 var mpResolverSource = ValueObjectEmitter.EmitMessagePackResolver(detected);
                 sourceCtx.AddSource("ValueObjectMessagePackResolverExtensions.g.cs", mpResolverSource);

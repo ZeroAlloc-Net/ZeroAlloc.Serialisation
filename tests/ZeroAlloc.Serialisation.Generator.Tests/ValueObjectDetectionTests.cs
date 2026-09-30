@@ -3,13 +3,14 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Xunit;
 using ZeroAlloc.Serialisation.Generator;
+using ZeroAlloc.Serialisation.Generator.Models;
 
 namespace ZeroAlloc.Serialisation.Generator.Tests;
 
 public class ValueObjectDetectionTests
 {
     [Fact]
-    public void SinglePropertyValueObject_IsDetected_AndReturnsUnderlyingProperty()
+    public void SinglePropertyValueObject_IsDetected_AndReturnsItsModel()
     {
         var source = """
             namespace ZeroAlloc.ValueObjects
@@ -33,10 +34,17 @@ public class ValueObjectDetectionTests
 
         var result = ModelExtractor.TryGetTransparentValueObject(candidate);
 
-        Assert.NotNull(result);
-        Assert.Equal("CustomerId", result.Value.Type.Name);
-        Assert.Equal("Value", result.Value.UnderlyingProperty.Name);
-        Assert.Equal(SpecialType.System_Int32, result.Value.UnderlyingProperty.Type.SpecialType);
+        Assert.Equal(
+            new ValueObjectModel(
+                Namespace: "TestModels",
+                TypeName: "CustomerId",
+                IsRecord: false,
+                IsReadOnly: true,
+                UnderlyingPropertyName: "Value",
+                UnderlyingSpecialType: SpecialType.System_Int32,
+                UnderlyingTypeDisplayName: "int",
+                UnderlyingTypeFullyQualifiedName: "int"),
+            result);
     }
 
     [Fact]

@@ -189,11 +189,11 @@ internal static class ModelExtractor
     /// If <paramref name="candidate"/> is decorated with
     /// <c>[ZeroAlloc.ValueObjects.ValueObject]</c> (FQN match — no runtime
     /// reference to ZA.ValueObjects required) and declares exactly one public
-    /// instance property, returns the type + its underlying property. Returns
-    /// null for everything else — class types, multi-property value-objects,
-    /// or types without the marker attribute.
+    /// instance property, returns the equatable model the emitters work from.
+    /// Returns null for everything else — multi-property value-objects, or
+    /// types without the marker attribute.
     /// </summary>
-    internal static (INamedTypeSymbol Type, IPropertySymbol UnderlyingProperty)? TryGetTransparentValueObject(INamedTypeSymbol candidate)
+    internal static ValueObjectModel? TryGetTransparentValueObject(INamedTypeSymbol candidate)
     {
         var hasMarker = candidate.GetAttributes()
             .Any(a => string.Equals(
@@ -207,7 +207,7 @@ internal static class ModelExtractor
             .Where(p => !p.IsStatic && p.DeclaredAccessibility == Accessibility.Public)
             .ToArray();
 
-        return properties.Length == 1 ? (candidate, properties[0]) : null;
+        return properties.Length == 1 ? ValueObjectModel.From(candidate, properties[0]) : null;
     }
 
     /// <summary>
