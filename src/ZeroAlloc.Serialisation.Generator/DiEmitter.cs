@@ -29,6 +29,8 @@ internal static class DiEmitter
             }
             """;
 
-        ctx.AddSource($"{model.TypeName}SerializerExtensions.g.cs", source);
+        // The full type name keeps same-named types in different namespaces apart; a repeated
+        // hint name makes Roslyn throw and drop the generator's whole output.
+        ctx.AddSource($"{model.FullTypeName}SerializerExtensions.g.cs", source);
     }
 }

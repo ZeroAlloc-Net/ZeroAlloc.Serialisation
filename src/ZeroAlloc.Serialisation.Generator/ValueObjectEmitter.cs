@@ -43,23 +43,16 @@ internal static class ValueObjectEmitter
             string.Equals(a.Name, assemblyName, StringComparison.Ordinal));
 
     /// <summary>
-    /// The file name the per-type output for <paramref name="model"/> is added under. A nested
-    /// type carries its containing types, so two nested types with the same simple name in
-    /// different containers do not collide.
+    /// The file name the per-type output for <paramref name="model"/> is added under: the
+    /// type's namespace, containing types and name, so same-named types in different
+    /// namespaces or containers do not collide. Hint names are not a contract; a repeated one
+    /// makes Roslyn throw and drop the generator's whole output.
     /// </summary>
-    internal static string HintName(ValueObjectModel model, string suffix) =>
-        $"{HintNamePrefix(model)}{suffix}.g.cs";
-
-    private static string HintNamePrefix(ValueObjectModel model)
+    internal static string HintName(ValueObjectModel model, string suffix)
     {
-        if (!model.IsNested) return model.TypeName;
-
         var sb = new System.Text.StringBuilder();
-        foreach (var containing in model.ContainingTypes)
-        {
-            sb.Append(containing.Name).Append('.');
-        }
-        return sb.Append(model.TypeName).ToString();
+        if (!string.IsNullOrEmpty(model.Namespace)) sb.Append(model.Namespace).Append('.');
+        return sb.Append(model.QualifiedTypeName).Append(suffix).Append(".g.cs").ToString();
     }
 
     /// <summary>

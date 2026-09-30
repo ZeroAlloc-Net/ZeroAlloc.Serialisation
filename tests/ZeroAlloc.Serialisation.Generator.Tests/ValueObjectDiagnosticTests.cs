@@ -117,9 +117,9 @@ public sealed class ValueObjectDiagnosticTests
         // Only the supported type's files, and the registrars listing only it.
         Assert.Equal(
             [
-                "FineMemoryPackFormatter.g.cs",
-                "FineMessagePackFormatter.g.cs",
-                "FineSystemTextJsonConverter.g.cs",
+                "Demo.FineMemoryPackFormatter.g.cs",
+                "Demo.FineMessagePackFormatter.g.cs",
+                "Demo.FineSystemTextJsonConverter.g.cs",
                 "ValueObjectJsonConvertersExtensions.g.cs",
                 "ValueObjectJsonTypeInfoResolver.g.cs",
                 "ValueObjectMessagePackResolverExtensions.g.cs",
@@ -163,10 +163,10 @@ public sealed class ValueObjectDiagnosticTests
         Assert.Equal("Id", diagnostic.Location.SourceTree!.GetText().ToString(diagnostic.Location.SourceSpan));
 
         var hints = HintNames(result);
-        Assert.Contains("Top.Hidden.IdSystemTextJsonConverter.g.cs", hints, StringComparer.Ordinal);
-        Assert.Contains("Top.Hidden.IdMessagePackFormatter.g.cs", hints, StringComparer.Ordinal);
-        Assert.DoesNotContain("Top.Hidden.IdMemoryPackFormatter.g.cs", hints, StringComparer.Ordinal);
-        Assert.Contains("FineMemoryPackFormatter.g.cs", hints, StringComparer.Ordinal);
+        Assert.Contains("Demo.Top.Hidden.IdSystemTextJsonConverter.g.cs", hints, StringComparer.Ordinal);
+        Assert.Contains("Demo.Top.Hidden.IdMessagePackFormatter.g.cs", hints, StringComparer.Ordinal);
+        Assert.DoesNotContain("Demo.Top.Hidden.IdMemoryPackFormatter.g.cs", hints, StringComparer.Ordinal);
+        Assert.Contains("Demo.FineMemoryPackFormatter.g.cs", hints, StringComparer.Ordinal);
 
         AssertNoCompileErrors(output);
     }
@@ -192,7 +192,7 @@ public sealed class ValueObjectDiagnosticTests
         var (output, result) = Run(declaration, memoryPack: false);
 
         Assert.Empty(result.Diagnostics);
-        Assert.Contains("Top.Hidden.IdSystemTextJsonConverter.g.cs", HintNames(result), StringComparer.Ordinal);
+        Assert.Contains("Demo.Top.Hidden.IdSystemTextJsonConverter.g.cs", HintNames(result), StringComparer.Ordinal);
         AssertNoCompileErrors(output);
     }
 
@@ -214,7 +214,7 @@ public sealed class ValueObjectDiagnosticTests
         var (output, result) = Run(declaration, memoryPack: true);
 
         Assert.Empty(result.Diagnostics);
-        Assert.Contains("Top.IdMemoryPackFormatter.g.cs", HintNames(result), StringComparer.Ordinal);
+        Assert.Contains("Demo.Top.IdMemoryPackFormatter.g.cs", HintNames(result), StringComparer.Ordinal);
         AssertNoCompileErrors(output);
     }
 
