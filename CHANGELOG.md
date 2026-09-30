@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.4.7](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.4.6...v2.4.7) (2026-09-30)
+
+
+### Performance Improvements
+
+* keep the [ValueObject] generator pipeline cached across unrelated edits ([#176](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/176)) ([ba36d9b](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/ba36d9b8ea22c807f866075fb62357a1edd9cf71)), closes [#175](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/175)
+
 ## [2.4.6](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.4.5...v2.4.6) (2026-09-28)
 
 
