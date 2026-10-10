@@ -124,7 +124,7 @@ Full methodology and guidance on when to use the wrapper vs raw libraries: [docs
 
 Generated serializers suppress `[RequiresDynamicCode]` and `[RequiresUnreferencedCode]` because `T` is resolved at generation time. The backend's own source generator (MemoryPack / MessagePack) has already emitted the formatter, so no dynamic code is required at runtime.
 
-Base classes (`MemoryPackSerializer<T>`, etc.) carry the attributes for ad-hoc / non-AOT use.
+Base classes (`MemoryPackSerializer<T>`, etc.) have reflection-based constructors that carry the attributes, for ad-hoc / non-AOT use. For Native AOT use `MemoryPackableSerializer<T>` and `MessagePackSerializer<T>(IFormatterResolver)`.
 
 ## REST Integration
 

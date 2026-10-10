@@ -532,10 +532,37 @@ if (valueTypesOk)
     Console.WriteLine("AOT smoke: value types OK (struct serializers x3 + dispatcher, nullable VO STJ + MessagePack, SystemTextJsonSerializer<int?>)");
 }
 
-var ok = v0Ok && v1Ok && v2Ok && underlyingOk && valueTypesOk && shapesOk && closedGenericsOk;
+// AOT-safe adapter constructors: MemoryPackableSerializer<T> registers the formatter without reflection, and
+// MessagePackSerializer<T>(IFormatterResolver) serializes through a source-generated resolver only.
+var aotSafeFailures = new System.Collections.Generic.List<string>();
+{
+    var memoryPackable = new global::ZeroAlloc.Serialisation.MemoryPack.MemoryPackableSerializer<MpMessage>();
+    var memoryPackableBuf = new ArrayBufferWriter<byte>();
+    memoryPackable.Serialize(memoryPackableBuf, new MpMessage { Id = "mpable-1", Value = 5 });
+    var memoryPackableBack = memoryPackable.Deserialize(memoryPackableBuf.WrittenSpan);
+    if (memoryPackableBack is null || !string.Equals(memoryPackableBack.Id, "mpable-1", StringComparison.Ordinal) || memoryPackableBack.Value != 5)
+        aotSafeFailures.Add("MemoryPackableSerializer<MpMessage> round-trip mismatch");
+
+    var resolver = global::MessagePack.Resolvers.CompositeResolver.Create(
+        AotSafeResolver.Instance, global::MessagePack.Resolvers.BuiltinResolver.Instance);
+    var resolverSerializer = new MessagePackSerializer<MsgpMessage>(resolver);
+    var resolverBuf = new ArrayBufferWriter<byte>();
+    resolverSerializer.Serialize(resolverBuf, new MsgpMessage { Id = "resolver-1", Value = 6 });
+    var resolverBack = resolverSerializer.Deserialize(resolverBuf.WrittenSpan);
+    if (resolverBack is null || !string.Equals(resolverBack.Id, "resolver-1", StringComparison.Ordinal) || resolverBack.Value != 6)
+        aotSafeFailures.Add("MessagePackSerializer<MsgpMessage>(resolver) round-trip mismatch");
+}
+
+var aotSafeOk = aotSafeFailures.Count == 0;
+if (aotSafeOk)
+{
+    Console.WriteLine("AOT smoke: AOT-safe adapters OK (MemoryPackableSerializer, MessagePackSerializer with a resolver)");
+}
+
+var ok = v0Ok && v1Ok && v2Ok && underlyingOk && valueTypesOk && shapesOk && closedGenericsOk && aotSafeOk;
 if (!ok)
 {
-    Console.WriteLine($"AOT smoke: FAIL (v0={v0Ok}, v1.resolver={resolverWired}, v1.wire={bareIntegerWire}, v1.roundTrip={roundTrip}, v2.bareInt={mpBareInteger}, v2.roundTrip={mpRoundTrip}, underlying={underlyingOk}, valueTypes={valueTypesOk}, shapes={shapesOk}, closedGenerics={closedGenericsOk})");
+    Console.WriteLine($"AOT smoke: FAIL (v0={v0Ok}, v1.resolver={resolverWired}, v1.wire={bareIntegerWire}, v1.roundTrip={roundTrip}, v2.bareInt={mpBareInteger}, v2.roundTrip={mpRoundTrip}, underlying={underlyingOk}, valueTypes={valueTypesOk}, shapes={shapesOk}, closedGenerics={closedGenericsOk}, aotSafe={aotSafeOk})");
     Console.WriteLine($"  dtoJson={dtoJson}");
     Console.WriteLine($"  mpJson={mpJson}");
     foreach (var failure in underlyingFailures)
@@ -549,6 +576,10 @@ if (!ok)
     foreach (var failure in shapeFailures)
     {
         Console.WriteLine($"  shapes: {failure}");
+    }
+    foreach (var failure in aotSafeFailures)
+    {
+        Console.WriteLine($"  aotSafe: {failure}");
     }
     foreach (var failure in closedGenericFailures)
     {
