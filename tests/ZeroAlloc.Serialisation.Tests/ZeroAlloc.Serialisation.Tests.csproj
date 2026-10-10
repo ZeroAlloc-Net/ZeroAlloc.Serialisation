@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFrameworks>net10.0</TargetFrameworks>
-    <NoWarn>$(NoWarn);MA0048;MA0074;IL2026;IL3050</NoWarn>
+    <NoWarn>$(NoWarn);MA0048;MA0074</NoWarn>
   </PropertyGroup>
   <!--
     End-to-end check of ZeroAllocGeneratedAccessibility: the package's build/ props file makes the

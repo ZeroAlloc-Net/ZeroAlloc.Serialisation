@@ -22,12 +22,12 @@ namespace ZeroAlloc.Serialisation;
 /// propagate unchanged.
 /// </para>
 /// </remarks>
-[RequiresUnreferencedCode("JSON fallback uses reflection-based System.Text.Json serialization which is not trim-safe.")]
-[RequiresDynamicCode("JSON fallback uses reflection-based System.Text.Json serialization which requires dynamic code generation.")]
 public sealed class SystemTextJsonFallbackDispatcher : ISerializerDispatcher
 {
     private readonly ISerializerDispatcher _inner;
     private readonly JsonSerializerOptions? _options;
+    private readonly Func<object, Type, JsonSerializerOptions?, ReadOnlyMemory<byte>> _serializeFallback;
+    private readonly Func<ReadOnlyMemory<byte>, Type, JsonSerializerOptions?, object?> _deserializeFallback;
 
     /// <summary>
     /// Initializes a new <see cref="SystemTextJsonFallbackDispatcher"/>.
@@ -37,13 +37,29 @@ public sealed class SystemTextJsonFallbackDispatcher : ISerializerDispatcher
     /// Optional <see cref="JsonSerializerOptions"/> used when falling back to
     /// <see cref="System.Text.Json.JsonSerializer"/>. <see langword="null"/> uses the default options.
     /// </param>
+    [RequiresUnreferencedCode("The fallback dispatcher serializes through reflection-based System.Text.Json, which is not trim-safe. Under Native AOT or trimming, use SystemTextJsonSerializer<T> with a source-generated JsonTypeInfo<T> instead.")]
+    [RequiresDynamicCode("The fallback dispatcher serializes through reflection-based System.Text.Json, which needs runtime code generation. Under Native AOT, use SystemTextJsonSerializer<T> with a source-generated JsonTypeInfo<T> instead.")]
     public SystemTextJsonFallbackDispatcher(
         ISerializerDispatcher inner,
         JsonSerializerOptions? options = null)
     {
-        _inner   = inner ?? throw new ArgumentNullException(nameof(inner));
+        _inner = inner ?? throw new ArgumentNullException(nameof(inner));
+        // The reflection-based calls are bound here, in the annotated constructor, so they are
+        // reachable only by callers that accepted the requirement.
         _options = options;
+        _serializeFallback = SerializeReflective;
+        _deserializeFallback = DeserializeReflective;
     }
+
+    [RequiresUnreferencedCode("Reflection-based System.Text.Json serialization is not trim-safe.")]
+    [RequiresDynamicCode("Reflection-based System.Text.Json serialization needs runtime code generation.")]
+    private static ReadOnlyMemory<byte> SerializeReflective(object value, Type type, JsonSerializerOptions? options)
+        => JsonSerializer.SerializeToUtf8Bytes(value, type, options);
+
+    [RequiresUnreferencedCode("Reflection-based System.Text.Json deserialization is not trim-safe.")]
+    [RequiresDynamicCode("Reflection-based System.Text.Json deserialization needs runtime code generation.")]
+    private static object? DeserializeReflective(ReadOnlyMemory<byte> data, Type type, JsonSerializerOptions? options)
+        => JsonSerializer.Deserialize(data.Span, type, options);
 
     /// <inheritdoc/>
     public ReadOnlyMemory<byte> Serialize(object value, Type type)
@@ -54,9 +70,7 @@ public sealed class SystemTextJsonFallbackDispatcher : ISerializerDispatcher
         }
         catch (NotSupportedException)
         {
-#pragma warning disable IL2026, IL3050
-            return JsonSerializer.SerializeToUtf8Bytes(value, type, _options);
-#pragma warning restore IL2026, IL3050
+            return _serializeFallback(value, type, _options);
         }
     }
 
@@ -69,9 +83,7 @@ public sealed class SystemTextJsonFallbackDispatcher : ISerializerDispatcher
         }
         catch (NotSupportedException)
         {
-#pragma warning disable IL2026, IL3050
-            return JsonSerializer.Deserialize(data.Span, type, _options);
-#pragma warning restore IL2026, IL3050
+            return _deserializeFallback(data, type, _options);
         }
     }
 }
