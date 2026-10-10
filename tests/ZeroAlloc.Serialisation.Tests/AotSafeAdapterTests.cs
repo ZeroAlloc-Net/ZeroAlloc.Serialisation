@@ -38,6 +38,14 @@ public class AotSafeAdapterTests
     }
 
     [Fact]
+    public void MemoryPackableSerializer_Constructor_RegistersFormatter()
+    {
+        _ = new MemoryPackableSerializer<AotMemoryPackRecord>();
+
+        Assert.True(MemoryPackFormatterProvider.IsRegistered<AotMemoryPackRecord>());
+    }
+
+    [Fact]
     public void MemoryPackableSerializer_EmptySpan_ReturnsDefault()
     {
         var serializer = new MemoryPackableSerializer<AotMemoryPackRecord>();

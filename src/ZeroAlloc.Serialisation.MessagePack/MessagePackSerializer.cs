@@ -34,7 +34,7 @@ public class MessagePackSerializer<T> : ISerializer<T>
 
     /// <summary>
     /// Serializes through <paramref name="resolver"/> only, with a copy of <paramref name="options"/>, or of
-    /// <see cref="MessagePackSerializerOptions.Standard"/>, whose resolver is replaced by it.
+    /// default options, whose resolver is replaced by it.
     /// </summary>
     /// <remarks>
     /// For Native AOT, build the resolver from a <c>[GeneratedMessagePackResolver]</c> class and
@@ -48,7 +48,8 @@ public class MessagePackSerializer<T> : ISerializer<T>
     public MessagePackSerializer(IFormatterResolver resolver, MessagePackSerializerOptions? options = null)
     {
         ArgumentNullException.ThrowIfNull(resolver);
-        _options = (options ?? MessagePackSerializerOptions.Standard).WithResolver(resolver);
+        // Not options ?? Standard: that would reach StandardResolver only to replace it.
+        _options = options is null ? new MessagePackSerializerOptions(resolver) : options.WithResolver(resolver);
     }
 
     public virtual void Serialize(IBufferWriter<byte> writer, T value)
