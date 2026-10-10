@@ -11,6 +11,10 @@ namespace ZeroAlloc.Serialisation.Tests;
 [MemoryPackable]
 public sealed partial record AotMemoryPackRecord(int Id, string Name);
 
+// Used only by the registration test: nothing else may touch it, so it is unregistered until that test constructs the serializer.
+[MemoryPackable]
+internal sealed partial record RegistrationProbeRecord(int Id);
+
 [MessagePackObject]
 public sealed class AotMessagePackDto
 {
@@ -40,9 +44,11 @@ public class AotSafeAdapterTests
     [Fact]
     public void MemoryPackableSerializer_Constructor_RegistersFormatter()
     {
-        _ = new MemoryPackableSerializer<AotMemoryPackRecord>();
+        Assert.False(MemoryPackFormatterProvider.IsRegistered<RegistrationProbeRecord>());
 
-        Assert.True(MemoryPackFormatterProvider.IsRegistered<AotMemoryPackRecord>());
+        _ = new MemoryPackableSerializer<RegistrationProbeRecord>();
+
+        Assert.True(MemoryPackFormatterProvider.IsRegistered<RegistrationProbeRecord>());
     }
 
     [Fact]
