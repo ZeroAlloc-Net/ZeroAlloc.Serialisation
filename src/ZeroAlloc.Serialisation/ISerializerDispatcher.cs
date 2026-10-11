@@ -110,9 +110,12 @@ public interface ISerializerDispatcher
     /// <see cref="NotSupportedException"/>, as <see cref="Deserialize(ReadOnlyMemory{byte}, Type)"/> does with
     /// <c>typeof(T)</c>.</typeparam>
     /// <param name="data">The raw bytes to deserialize.</param>
-    /// <returns>The deserialized value. For empty <paramref name="data"/>, or when the underlying serializer
-    /// returns null, <see langword="default"/>: <see langword="null"/> for a reference type, the zero value for
-    /// a value type.</returns>
+    /// <returns>The deserialized value. For empty <paramref name="data"/>, the generated
+    /// <c>SerializerDispatcher</c> returns <see langword="default"/>: <see langword="null"/> for a reference type,
+    /// the zero value for a value type, as <see cref="Deserialize(ReadOnlyMemory{byte}, Type)"/> does. When
+    /// <see cref="Deserialize(ReadOnlyMemory{byte}, Type)"/> returns <see langword="null"/>, the default
+    /// implementation returns <see langword="null"/> for a reference type or a <see cref="Nullable{T}"/>, and
+    /// throws for a non-nullable value type.</returns>
     /// <remarks>
     /// <para>
     /// The generated <c>SerializerDispatcher</c> compares <c>typeof(T)</c> with each registered type and returns
@@ -124,11 +127,24 @@ public interface ISerializerDispatcher
     /// <para>
     /// The default implementation, used by a dispatcher that does not override it, calls
     /// <see cref="Deserialize(ReadOnlyMemory{byte}, Type)"/> with <c>typeof(T)</c> and unboxes the result.
+    /// A <see langword="null"/> result has no value to unbox into a non-nullable value type, so it throws
+    /// rather than return a zero value the data never held.
     /// </para>
     /// </remarks>
     /// <exception cref="NotSupportedException">Thrown when no serializer is registered for <typeparamref name="T"/>.</exception>
     /// <exception cref="InvalidCastException">Thrown by the default implementation when
-    /// <see cref="Deserialize(ReadOnlyMemory{byte}, Type)"/> returns an object that is not a <typeparamref name="T"/>.</exception>
+    /// <see cref="Deserialize(ReadOnlyMemory{byte}, Type)"/> returns an object that is not a <typeparamref name="T"/>,
+    /// or returns <see langword="null"/> when <typeparamref name="T"/> is a non-nullable value type.</exception>
     T? Deserialize<T>(ReadOnlyMemory<byte> data)
-        => Deserialize(data, typeof(T)) is { } value ? (T)value : default;
+    {
+        if (Deserialize(data, typeof(T)) is { } value) return (T)value;
+
+        // default(T) is null exactly for a reference type or a Nullable<>, and is a constant in each
+        // compiled instantiation, so this check costs nothing on the success path.
+        if (default(T) is null) return default;
+
+        throw new InvalidCastException(
+            $"Deserialize(ReadOnlyMemory<byte>, Type) returned null for {typeof(T).FullName}, " +
+            "a non-nullable value type. A null result cannot be returned as a value of that type.");
+    }
 }
