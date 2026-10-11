@@ -1,2 +1,1 @@
 #nullable enable
-ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher.Deserialize<T>(System.ReadOnlyMemory<byte> data) -> T?
