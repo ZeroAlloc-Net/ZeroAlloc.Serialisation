@@ -95,6 +95,14 @@ dispatcher.Serialize(writer, @event, @event.GetType());     // by runtime type
 
 See [Serializing into your own `IBufferWriter<byte>`](docs/dependency-injection.md#serializing-into-your-own-ibufferwriterbyte).
 
+`Deserialize(ReadOnlyMemory<byte>, Type)` returns `object`, so a struct read back through it is boxed. When the type is known at compile time, the generic overload returns it as `T` without the box:
+
+```csharp
+OrderCreated created = dispatcher.Deserialize<OrderCreated>(data);
+```
+
+See [Deserializing to a known type](docs/dependency-injection.md#deserializing-to-a-known-type).
+
 ## Packages
 
 | Package | Description | TFM |

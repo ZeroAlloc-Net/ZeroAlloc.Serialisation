@@ -112,12 +112,29 @@ public sealed partial class SerializerDispatcher : ISerializerDispatcher
             "Ensure the type is annotated with [ZeroAllocSerializable], or for a closed generic type, " +
             "declared with [assembly: ZeroAllocSerializable(typeof(...), format)].");
     }
+
+    public T? Deserialize<T>(ReadOnlyMemory<byte> data)
+    {
+        if (typeof(T) == typeof(global::MyApp.OrderCreated))
+        {
+            global::MyApp.OrderCreated? __v = __zaSerializer0.Deserialize(data.Span);
+#if NETCOREAPP3_0_OR_GREATER
+            return global::System.Runtime.CompilerServices.Unsafe.As<global::MyApp.OrderCreated?, T>(ref __v);
+#else
+            return (T?)(object?)__v;
+#endif
+        }
+        // ... one block per registered type; a MessagePack type reads through DeserializeMemory(data) ...
+        return (T?)Deserialize(data, typeof(T));
+    }
 }
 ```
 
 The generated serializers are sealed and keep no per-call state, so the dispatcher creates each one once and shares it. `Serialize(object, Type)` returns memory the caller owns, so it allocates that buffer; nothing else is allocated per call beyond what the backend allocates.
 
 The two `IBufferWriter<byte>` overloads write straight into the caller's writer. In `Serialize<T>`, `typeof(T) == typeof(X)` is a constant in each compiled instantiation, so only the matching block remains, and `Unsafe.As` passes a struct to its serializer without boxing it. A consumer whose framework has no `Unsafe`, such as one targeting netstandard2.1, gets a cast through `object` instead, which the JIT also compiles to no box once it optimizes the method. See [Serializing into your own `IBufferWriter<byte>`](dependency-injection.md#serializing-into-your-own-ibufferwriterbyte).
+
+`Deserialize<T>` is the read-side counterpart: the same `typeof(T)` blocks, each reinterpreting the serializer's result as `T` with `Unsafe.As`, so a struct is returned without the box the `object`-returning `Deserialize` needs. Without `Unsafe` it uses the same cast through `object` as `Serialize<T>`. A `T` that is not registered falls through to `Deserialize(data, typeof(T))`, which throws `NotSupportedException`. See [Deserializing to a known type](dependency-injection.md#deserializing-to-a-known-type).
 
 The `partial` modifier allows adding hand-written cases for types that cannot be annotated. Leave the accessibility modifier off your own part: the generated part is `public`, or `internal` when [`ZeroAllocGeneratedAccessibility`](dependency-injection.md#making-the-generated-registration-internal) is `Internal`.
 

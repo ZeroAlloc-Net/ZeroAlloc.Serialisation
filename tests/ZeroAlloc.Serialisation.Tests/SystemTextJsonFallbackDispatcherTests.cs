@@ -205,6 +205,57 @@ public sealed class SystemTextJsonFallbackDispatcherTests
         Assert.Equal(0, perCall);
     }
 
+    // ── Generic Deserialize<T> ────────────────────────────────────────────────
+
+    [Fact]
+    public void DeserializeGeneric_UsesInnerDispatcher_WhenTypeIsKnown()
+    {
+        var sut = new SystemTextJsonFallbackDispatcher(new StubDispatcher());
+
+        var p = sut.Deserialize<Point>("""{"X":0,"Y":0}"""u8.ToArray());
+
+        Assert.Equal(new Point(99, 99), p);
+    }
+
+    [Fact]
+    public void DeserializeGeneric_FallsBackToSystemTextJson_LikeTheObjectOverload_WhenTypeIsUnknown()
+    {
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        var sut = new SystemTextJsonFallbackDispatcher(new StubDispatcher(), options);
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(new Other("world"), options);
+
+        var generic = sut.Deserialize<Other>(bytes);
+
+        Assert.Equal(new Other("world"), generic);
+        Assert.Equal(sut.Deserialize(bytes, typeof(Other)), generic);
+    }
+
+    [Fact]
+    public void DeserializeGeneric_PropagatesNonNotSupportedException()
+    {
+        var sut = new SystemTextJsonFallbackDispatcher(new ThrowingDispatcher(new InvalidOperationException("boom")));
+        var bytes = JsonSerializer.SerializeToUtf8Bytes(new Other("x"));
+
+        Assert.Throws<InvalidOperationException>(() => sut.Deserialize<Other>(bytes));
+    }
+
+    [Fact]
+    public void DeserializeGeneric_OverGeneratedDispatcher_RegisteredStruct_AllocatesNothing()
+    {
+        var sut = new SystemTextJsonFallbackDispatcher(new SerializerDispatcher());
+        var value = new ReadMpStruct(8, 80);
+        var data = sut.Serialize(value, typeof(ReadMpStruct));
+        ReadMpStruct back = default;
+
+        for (var i = 0; i < 20; i++) back = sut.Deserialize<ReadMpStruct>(data);
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < 200; i++) back = sut.Deserialize<ReadMpStruct>(data);
+        var perCall = (GC.GetAllocatedBytesForCurrentThread() - before) / 200;
+
+        Assert.Equal(0, perCall);
+        Assert.Equal(value, back);
+    }
+
     // ── helper: dispatcher that throws a configurable exception ──────────────
 
     private sealed class ThrowingDispatcher(Exception ex) : ISerializerDispatcher
