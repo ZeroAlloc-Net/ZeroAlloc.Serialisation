@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.7.0...v2.8.0) (2026-10-11)
+
+
+### Features
+
+* add generic Deserialize&lt;T&gt; to ISerializerDispatcher ([#206](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/206)) ([39f7ab8](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/39f7ab8c60cc5dce49a1d574efe6a62e8945b793)), closes [#205](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/205)
+
 ## [2.7.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.6.1...v2.7.0) (2026-10-11)
 
 
