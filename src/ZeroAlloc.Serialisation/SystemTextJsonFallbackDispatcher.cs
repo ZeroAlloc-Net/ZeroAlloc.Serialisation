@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
 
@@ -57,6 +58,53 @@ public sealed class SystemTextJsonFallbackDispatcher : ISerializerDispatcher
             return JsonSerializer.SerializeToUtf8Bytes(value, type, _options);
         }
     }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// Writes through the inner dispatcher's <see cref="ISerializerDispatcher.Serialize(IBufferWriter{byte}, object, Type)"/>,
+    /// so a registered type is written straight into <paramref name="writer"/>. An unregistered type is serialized
+    /// with <see cref="JsonSerializer"/>, as the memory-returning overload does, and copied in. The generated dispatcher
+    /// throws <see cref="NotSupportedException"/> for an unregistered type before it writes anything.
+    /// </remarks>
+    public void Serialize(IBufferWriter<byte> writer, object value, Type type)
+    {
+        if (writer is null) throw new ArgumentNullException(nameof(writer));
+
+        try
+        {
+            _inner.Serialize(writer, value, type);
+        }
+        catch (NotSupportedException)
+        {
+            WriteJson(writer, value, type);
+        }
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// Writes through the inner dispatcher's <see cref="ISerializerDispatcher.Serialize{T}(IBufferWriter{byte}, T)"/>,
+    /// so a registered type is written straight into <paramref name="writer"/> without boxing. An unregistered
+    /// type is written with <see cref="JsonSerializer"/> as <typeparamref name="T"/>.
+    /// </remarks>
+    public void Serialize<T>(IBufferWriter<byte> writer, T value)
+    {
+        if (writer is null) throw new ArgumentNullException(nameof(writer));
+
+        try
+        {
+            _inner.Serialize(writer, value);
+        }
+        catch (NotSupportedException)
+        {
+            WriteJson(writer, value, typeof(T));
+        }
+    }
+
+    // The same bytes as the memory-returning Serialize: SerializeToUtf8Bytes applies every
+    // JsonSerializerOptions setting, including the formatting ones a caller-built Utf8JsonWriter would
+    // take from JsonWriterOptions instead. This path is the reflection fallback, not the hot path.
+    private void WriteJson(IBufferWriter<byte> writer, object? value, Type type)
+        => writer.Write(JsonSerializer.SerializeToUtf8Bytes(value, type, _options));
 
     /// <inheritdoc/>
     public object? Deserialize(ReadOnlyMemory<byte> data, Type type)
