@@ -4,6 +4,7 @@ ZeroAlloc.Serialisation.ISerializer<T>.Deserialize(System.ReadOnlySpan<byte> buf
 ZeroAlloc.Serialisation.ISerializer<T>.Serialize(System.Buffers.IBufferWriter<byte>! writer, T value) -> void
 ZeroAlloc.Serialisation.ISerializerDispatcher
 ZeroAlloc.Serialisation.ISerializerDispatcher.Deserialize(System.ReadOnlyMemory<byte> data, System.Type! type) -> object?
+ZeroAlloc.Serialisation.ISerializerDispatcher.Deserialize<T>(System.ReadOnlyMemory<byte> data) -> T?
 ZeroAlloc.Serialisation.ISerializerDispatcher.Serialize(object! value, System.Type! type) -> System.ReadOnlyMemory<byte>
 ZeroAlloc.Serialisation.ISerializerDispatcher.Serialize(System.Buffers.IBufferWriter<byte>! writer, object! value, System.Type! type) -> void
 ZeroAlloc.Serialisation.ISerializerDispatcher.Serialize<T>(System.Buffers.IBufferWriter<byte>! writer, T value) -> void
