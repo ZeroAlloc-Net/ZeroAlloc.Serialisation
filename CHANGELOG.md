@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.8.0...v2.8.1) (2026-10-11)
+
+
+### Bug Fixes
+
+* throw when the default Deserialize&lt;T&gt; gets null for a struct ([#209](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/209)) ([bec9377](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/bec93772bdb7a07f9de9b3fd1f74870bb0154f06))
+
 ## [2.8.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.7.0...v2.8.0) (2026-10-11)
 
 
