@@ -19,8 +19,16 @@ public sealed class SystemTextJsonSerializer<T> : ISerializer<T>
 
     public void Serialize(IBufferWriter<byte> writer, T value)
     {
-        using var jsonWriter = new Utf8JsonWriter(writer);
-        JsonSerializer.Serialize(jsonWriter, value, _typeInfo);
+        var jsonWriter = Utf8JsonWriterCache.Rent(writer);
+        try
+        {
+            JsonSerializer.Serialize(jsonWriter, value, _typeInfo);
+            jsonWriter.Flush();
+        }
+        finally
+        {
+            Utf8JsonWriterCache.Return(jsonWriter);
+        }
     }
 
     public T? Deserialize(ReadOnlySpan<byte> buffer)
@@ -31,7 +39,16 @@ public sealed class SystemTextJsonSerializer<T> : ISerializer<T>
 }
 ```
 
-The `Utf8JsonWriter` writes directly to the `IBufferWriter<byte>` — no intermediate `byte[]`. The `using` ensures the writer is flushed before the method returns.
+The `Utf8JsonWriter` writes directly to the `IBufferWriter<byte>` — no intermediate `byte[]` — and is flushed before the method returns.
+
+`Serialize` allocates nothing of its own. Each thread keeps one `Utf8JsonWriter` and points it at the caller's buffer writer with `Reset`, instead of creating a writer per call. The cache is safe to use from converters:
+
+- A converter that serializes through a `SystemTextJsonSerializer<T>` again, on the same thread, while the outer call is still writing gets a writer of its own, so the outer one is not disturbed.
+- After each call, finished or failed, the writer is reset. An exception thrown mid-write leaves nothing behind for the next call, and the writer keeps no reference to your buffer writer.
+
+If `Serialize` throws, the bytes written so far are not flushed to your buffer writer.
+
+The serializers the source generator emits for System.Text.Json do the same, with one cached writer per thread for each generated serializer.
 
 ## AOT Usage
 

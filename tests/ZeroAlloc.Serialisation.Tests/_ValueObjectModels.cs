@@ -12,4 +12,11 @@ namespace ZeroAlloc.Serialisation.Tests
         public int Value { get; }
         public CustomerId(int value) => Value = value;
     }
+
+    [global::ZeroAlloc.ValueObjects.ValueObject]
+    public readonly partial struct ShiftLength
+    {
+        public global::System.TimeSpan Value { get; }
+        public ShiftLength(global::System.TimeSpan value) => Value = value;
+    }
 }

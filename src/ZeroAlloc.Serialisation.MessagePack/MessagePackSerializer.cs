@@ -58,9 +58,20 @@ public class MessagePackSerializer<T> : ISerializer<T>
     public virtual T? Deserialize(ReadOnlySpan<byte> buffer)
     {
         if (buffer.IsEmpty) return default;
-        // MessagePack 3.x has no Deserialize(ReadOnlySpan<byte>) overload — it requires ReadOnlySequence<byte>.
-        // Converting from ReadOnlySpan<byte> requires a buffer copy; this allocation is unavoidable with this API.
-        var sequence = new ReadOnlySequence<byte>(buffer.ToArray());
-        return global::MessagePack.MessagePackSerializer.Deserialize<T>(sequence, _options);
+        // MessagePack reads ReadOnlyMemory<byte> or ReadOnlySequence<byte>, never a span: its reader is
+        // built on SequenceReader<byte>. Copy the span into a pooled array rather than a new one. Pinning
+        // the span behind a MemoryManager would skip the copy, but would turn a formatter that keeps a
+        // slice of its input into a dangling pointer once the span is unpinned.
+        var rented = ArrayPool<byte>.Shared.Rent(buffer.Length);
+        try
+        {
+            buffer.CopyTo(rented);
+            return global::MessagePack.MessagePackSerializer.Deserialize<T>(
+                new ReadOnlyMemory<byte>(rented, 0, buffer.Length), _options);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(rented);
+        }
     }
 }

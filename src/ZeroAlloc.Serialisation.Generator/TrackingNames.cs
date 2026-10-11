@@ -21,6 +21,7 @@ internal static class TrackingNames
     public const string AssemblyModels = nameof(AssemblyModels);
     public const string AllAssemblyModels = nameof(AllAssemblyModels);
     public const string DispatcherModels = nameof(DispatcherModels);
+    public const string TrimSuppressions = nameof(TrimSuppressions);
     public const string ValueObjectResults = nameof(ValueObjectResults);
     public const string ValueObjectModels = nameof(ValueObjectModels);
     public const string ValueObjectBackends = nameof(ValueObjectBackends);

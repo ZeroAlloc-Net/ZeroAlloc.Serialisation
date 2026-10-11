@@ -15,8 +15,16 @@ public sealed class SystemTextJsonSerializer<T> : ISerializer<T>
 
     public void Serialize(IBufferWriter<byte> writer, T value)
     {
-        using var jsonWriter = new Utf8JsonWriter(writer);
-        JsonSerializer.Serialize(jsonWriter, value, _typeInfo);
+        var jsonWriter = Utf8JsonWriterCache.Rent(writer);
+        try
+        {
+            JsonSerializer.Serialize(jsonWriter, value, _typeInfo);
+            jsonWriter.Flush();
+        }
+        finally
+        {
+            Utf8JsonWriterCache.Return(jsonWriter);
+        }
     }
 
     public T? Deserialize(ReadOnlySpan<byte> buffer)

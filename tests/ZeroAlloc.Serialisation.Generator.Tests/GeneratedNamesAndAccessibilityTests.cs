@@ -66,8 +66,9 @@ public sealed class GeneratedNamesAndAccessibilityTests
         Assert.Contains("public static IServiceCollection AddDemo_B_InnerSerializer(", Source(result, "Demo.B.InnerSerializerExtensions.g.cs"), StringComparison.Ordinal);
 
         var dispatcher = Source(result, "SerializerDispatcher.g.cs");
-        Assert.Contains("case global::Demo.A.Inner __e: new global::Demo.Demo_A_InnerSerializer()", dispatcher, StringComparison.Ordinal);
-        Assert.Contains("if (type == typeof(global::Demo.B.Inner)) return new global::Demo.Demo_B_InnerSerializer()", dispatcher, StringComparison.Ordinal);
+        Assert.Contains("private static readonly global::Demo.Demo_A_InnerSerializer __zaSerializer", dispatcher, StringComparison.Ordinal);
+        Assert.Contains("case global::Demo.A.Inner __e: __zaSerializer", dispatcher, StringComparison.Ordinal);
+        Assert.Contains("if (type == typeof(global::Demo.B.Inner)) return global::Demo.Demo_B_InnerSerializer.DeserializeMemory(data);", dispatcher, StringComparison.Ordinal);
 
         // A type whose name collides with nothing keeps its simple name.
         Assert.Contains("internal sealed class UniqueSerializer", Source(result, "Demo.UniqueSerializer.g.cs"), StringComparison.Ordinal);

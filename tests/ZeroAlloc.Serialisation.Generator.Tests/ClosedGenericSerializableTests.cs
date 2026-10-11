@@ -86,8 +86,9 @@ public sealed class ClosedGenericSerializableTests
             StringComparison.Ordinal);
 
         var dispatcher = Source(result, "SerializerDispatcher.g.cs");
-        Assert.Contains("case global::Demo.Envelope<global::Demo.Order> __e: new global::Demo.EnvelopeOfOrderSerializer()", dispatcher, StringComparison.Ordinal);
-        Assert.Contains("if (type == typeof(global::Demo.Pair<int, global::Demo.Order>)) return new global::Demo.PairOfInt32AndOrderSerializer()", dispatcher, StringComparison.Ordinal);
+        Assert.Contains("private static readonly global::Demo.EnvelopeOfOrderSerializer __zaSerializer", dispatcher, StringComparison.Ordinal);
+        Assert.Contains("case global::Demo.Envelope<global::Demo.Order> __e: __zaSerializer", dispatcher, StringComparison.Ordinal);
+        Assert.Contains("if (type == typeof(global::Demo.Pair<int, global::Demo.Order>)) return global::Demo.PairOfInt32AndOrderSerializer.DeserializeMemory(data);", dispatcher, StringComparison.Ordinal);
         Assert.Contains("typeof(global::Demo.Envelope<global::Demo.Pair<int, global::Demo.Order>>)", dispatcher, StringComparison.Ordinal);
     }
 

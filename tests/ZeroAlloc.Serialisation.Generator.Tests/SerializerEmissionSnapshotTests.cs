@@ -111,9 +111,27 @@ public sealed class SerializerEmissionSnapshotTests
             public global::Demo.MsgpBasic? Deserialize(global::System.ReadOnlySpan<byte> buffer)
             {
                 if (buffer.IsEmpty) return default;
-                // MessagePack 3.x has no Deserialize(ReadOnlySpan<byte>) overload — it requires ReadOnlySequence<byte>.
-            // Converting from ReadOnlySpan<byte> requires a buffer copy; this allocation is unavoidable with this API.
-            return global::MessagePack.MessagePackSerializer.Deserialize<global::Demo.MsgpBasic>(new global::System.Buffers.ReadOnlySequence<byte>(buffer.ToArray()));
+                // MessagePack reads ReadOnlyMemory<byte> or ReadOnlySequence<byte>, never a span, so the span
+                // is copied: into a pooled array, not a new one.
+                var _rented = global::System.Buffers.ArrayPool<byte>.Shared.Rent(buffer.Length);
+                try
+                {
+                    buffer.CopyTo(_rented);
+                    return DeserializeMemory(new global::System.ReadOnlyMemory<byte>(_rented, 0, buffer.Length));
+                }
+                finally
+                {
+                    global::System.Buffers.ArrayPool<byte>.Shared.Return(_rented);
+                }
+            }
+
+            // Deserializes memory the caller already holds, without copying it. SerializerDispatcher calls this.
+        {{TrimSuppress}}
+        {{AotSuppress}}
+            internal static global::Demo.MsgpBasic? DeserializeMemory(global::System.ReadOnlyMemory<byte> buffer)
+            {
+                if (buffer.IsEmpty) return default;
+                return global::MessagePack.MessagePackSerializer.Deserialize<global::Demo.MsgpBasic>(buffer);
             }
         }
         """;
@@ -143,9 +161,27 @@ public sealed class SerializerEmissionSnapshotTests
             public global::Demo.MsgpRec? Deserialize(global::System.ReadOnlySpan<byte> buffer)
             {
                 if (buffer.IsEmpty) return default;
-                // MessagePack 3.x has no Deserialize(ReadOnlySpan<byte>) overload — it requires ReadOnlySequence<byte>.
-            // Converting from ReadOnlySpan<byte> requires a buffer copy; this allocation is unavoidable with this API.
-            return global::MessagePack.MessagePackSerializer.Deserialize<global::Demo.MsgpRec>(new global::System.Buffers.ReadOnlySequence<byte>(buffer.ToArray()));
+                // MessagePack reads ReadOnlyMemory<byte> or ReadOnlySequence<byte>, never a span, so the span
+                // is copied: into a pooled array, not a new one.
+                var _rented = global::System.Buffers.ArrayPool<byte>.Shared.Rent(buffer.Length);
+                try
+                {
+                    buffer.CopyTo(_rented);
+                    return DeserializeMemory(new global::System.ReadOnlyMemory<byte>(_rented, 0, buffer.Length));
+                }
+                finally
+                {
+                    global::System.Buffers.ArrayPool<byte>.Shared.Return(_rented);
+                }
+            }
+
+            // Deserializes memory the caller already holds, without copying it. SerializerDispatcher calls this.
+        {{TrimSuppress}}
+        {{AotSuppress}}
+            internal static global::Demo.MsgpRec? DeserializeMemory(global::System.ReadOnlyMemory<byte> buffer)
+            {
+                if (buffer.IsEmpty) return default;
+                return global::MessagePack.MessagePackSerializer.Deserialize<global::Demo.MsgpRec>(buffer);
             }
         }
         """;
@@ -167,14 +203,49 @@ public sealed class SerializerEmissionSnapshotTests
         {
             public void Serialize(IBufferWriter<byte> writer, global::Demo.StjBasic value)
             {
-                using var _jw = new global::System.Text.Json.Utf8JsonWriter(writer);
-                global::System.Text.Json.JsonSerializer.Serialize(_jw, value, global::Demo.StjBasicContext.Default.StjBasic);
+                var _jw = t_jsonWriter;
+                if (_jw is null)
+                {
+                    _jw = new global::System.Text.Json.Utf8JsonWriter(writer);
+                }
+                else
+                {
+                    t_jsonWriter = null;
+                    _jw.Reset(writer);
+                }
+                try
+                {
+                    global::System.Text.Json.JsonSerializer.Serialize(_jw, value, global::Demo.StjBasicContext.Default.StjBasic);
+                    _jw.Flush();
+                }
+                finally
+                {
+                    _jw.Reset(DetachedOutput.Instance);
+                    t_jsonWriter = _jw;
+                }
             }
 
             public global::Demo.StjBasic? Deserialize(global::System.ReadOnlySpan<byte> buffer)
             {
                 if (buffer.IsEmpty) return default;
                 return global::System.Text.Json.JsonSerializer.Deserialize(buffer, global::Demo.StjBasicContext.Default.StjBasic);
+            }
+
+            // One Utf8JsonWriter per thread, reset to each caller's buffer writer. Serialize empties the
+            // slot while it writes, so a reentrant call on the same thread creates a writer of its own.
+            [global::System.ThreadStatic]
+            private static global::System.Text.Json.Utf8JsonWriter? t_jsonWriter;
+
+            // What a cached writer points at between calls, so that it keeps no caller's buffer writer alive.
+            private sealed class DetachedOutput : IBufferWriter<byte>
+            {
+                public static readonly DetachedOutput Instance = new DetachedOutput();
+
+                public void Advance(int count) => throw new global::System.InvalidOperationException();
+
+                public global::System.Memory<byte> GetMemory(int sizeHint = 0) => throw new global::System.InvalidOperationException();
+
+                public global::System.Span<byte> GetSpan(int sizeHint = 0) => throw new global::System.InvalidOperationException();
             }
         }
         """;
@@ -194,14 +265,49 @@ public sealed class SerializerEmissionSnapshotTests
         {
             public void Serialize(IBufferWriter<byte> writer, global::Demo.StjRec value)
             {
-                using var _jw = new global::System.Text.Json.Utf8JsonWriter(writer);
-                global::System.Text.Json.JsonSerializer.Serialize(_jw, value, global::Demo.StjRecContext.Default.StjRec);
+                var _jw = t_jsonWriter;
+                if (_jw is null)
+                {
+                    _jw = new global::System.Text.Json.Utf8JsonWriter(writer);
+                }
+                else
+                {
+                    t_jsonWriter = null;
+                    _jw.Reset(writer);
+                }
+                try
+                {
+                    global::System.Text.Json.JsonSerializer.Serialize(_jw, value, global::Demo.StjRecContext.Default.StjRec);
+                    _jw.Flush();
+                }
+                finally
+                {
+                    _jw.Reset(DetachedOutput.Instance);
+                    t_jsonWriter = _jw;
+                }
             }
 
             public global::Demo.StjRec? Deserialize(global::System.ReadOnlySpan<byte> buffer)
             {
                 if (buffer.IsEmpty) return default;
                 return global::System.Text.Json.JsonSerializer.Deserialize(buffer, global::Demo.StjRecContext.Default.StjRec);
+            }
+
+            // One Utf8JsonWriter per thread, reset to each caller's buffer writer. Serialize empties the
+            // slot while it writes, so a reentrant call on the same thread creates a writer of its own.
+            [global::System.ThreadStatic]
+            private static global::System.Text.Json.Utf8JsonWriter? t_jsonWriter;
+
+            // What a cached writer points at between calls, so that it keeps no caller's buffer writer alive.
+            private sealed class DetachedOutput : IBufferWriter<byte>
+            {
+                public static readonly DetachedOutput Instance = new DetachedOutput();
+
+                public void Advance(int count) => throw new global::System.InvalidOperationException();
+
+                public global::System.Memory<byte> GetMemory(int sizeHint = 0) => throw new global::System.InvalidOperationException();
+
+                public global::System.Span<byte> GetSpan(int sizeHint = 0) => throw new global::System.InvalidOperationException();
             }
         }
         """;

@@ -7,6 +7,8 @@ using ZeroAlloc.Serialisation.SystemTextJson;
 
 namespace ZeroAlloc.Serialisation.Benchmarks;
 
+// Every Serialize writes into one reused buffer writer, so the allocation column is the
+// serializer's own and not the caller's buffer.
 [MemoryDiagnoser]
 [SimpleJob]
 public class SerializerBenchmarks
@@ -20,6 +22,8 @@ public class SerializerBenchmarks
     private byte[] _mpBytes = [];
     private byte[] _msgBytes = [];
     private byte[] _stjBytes = [];
+
+    private readonly ArrayBufferWriter<byte> _buffer = new(1024);
 
     [GlobalSetup]
     public void Setup()
@@ -35,25 +39,25 @@ public class SerializerBenchmarks
     [Benchmark(Baseline = true)]
     public int Serialize_MemoryPack()
     {
-        var buf = new ArrayBufferWriter<byte>();
-        _mp.Serialize(buf, s_dto);
-        return buf.WrittenCount;
+        _buffer.ResetWrittenCount();
+        _mp.Serialize(_buffer, s_dto);
+        return _buffer.WrittenCount;
     }
 
     [Benchmark]
     public int Serialize_MessagePack()
     {
-        var buf = new ArrayBufferWriter<byte>();
-        _msg.Serialize(buf, s_dto);
-        return buf.WrittenCount;
+        _buffer.ResetWrittenCount();
+        _msg.Serialize(_buffer, s_dto);
+        return _buffer.WrittenCount;
     }
 
     [Benchmark]
     public int Serialize_SystemTextJson()
     {
-        var buf = new ArrayBufferWriter<byte>();
-        _stj.Serialize(buf, s_dto);
-        return buf.WrittenCount;
+        _buffer.ResetWrittenCount();
+        _stj.Serialize(_buffer, s_dto);
+        return _buffer.WrittenCount;
     }
 
     [Benchmark]
