@@ -95,7 +95,7 @@ The parameter is `ReadOnlyMemory<byte>`, like the `object` overload's, because e
 
 Errors match the `object` overload. A `T` that is not itself a registered type throws `NotSupportedException`, with the same message: reading has no runtime type to dispatch on, so `object`, an interface or `Nullable<T>` of a registered struct is not supported. Empty data returns `default`: `null` for a class, the zero value for a struct.
 
-`Deserialize<T>` is a default interface member too. A dispatcher you wrote yourself inherits an implementation that calls your `Deserialize(data, typeof(T))` and unboxes the result: `default` when it returns `null`, and an `InvalidCastException` when it returns an object that is not a `T`. `SystemTextJsonFallbackDispatcher` forwards `Deserialize<T>` to the dispatcher it wraps, so a registered struct is not boxed there either, and reads an unregistered type with `System.Text.Json` as `T`, with the same options as its `object` overload.
+`Deserialize<T>` is a default interface member too. A dispatcher you wrote yourself inherits an implementation that calls your `Deserialize(data, typeof(T))` and unboxes the result. When it returns `null`, the result is `null` for a class or a `Nullable<T>`, and an `InvalidCastException` for a non-nullable struct, since a zero struct would be a value the data never held. When it returns an object that is not a `T`, the result is an `InvalidCastException` too. `SystemTextJsonFallbackDispatcher` forwards `Deserialize<T>` to the dispatcher it wraps, so a registered struct is not boxed there either, and reads an unregistered type with `System.Text.Json` as `T`, with the same options as its `object` overload.
 
 ## Making the Generated Registration Internal
 

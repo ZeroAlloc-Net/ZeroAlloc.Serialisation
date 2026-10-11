@@ -262,12 +262,33 @@ public class DispatcherGenericDeserializeTests
     }
 
     [Fact]
-    public void DefaultImplementation_NullResult_ReturnsDefault()
+    public void DefaultImplementation_NullResult_ForAClass_ReturnsNull()
     {
         ISerializerDispatcher dispatcher = new LegacyDispatcher(null);
 
         Assert.Null(dispatcher.Deserialize<StjOrder>(s_stjBytes));
-        Assert.Equal(default(ReadMpStruct), dispatcher.Deserialize<ReadMpStruct>(s_mpBytes));
+    }
+
+    [Fact]
+    public void DefaultImplementation_NullResult_ForANullableStruct_ReturnsNull()
+    {
+        var legacy = new LegacyDispatcher(null);
+        ISerializerDispatcher dispatcher = legacy;
+
+        Assert.Null(dispatcher.Deserialize<ReadMpStruct?>(s_mpBytes));
+        Assert.Equal(typeof(ReadMpStruct?), legacy.LastType);
+    }
+
+    [Fact]
+    public void DefaultImplementation_NullResult_ForANonNullableStruct_Throws()
+    {
+        ISerializerDispatcher dispatcher = new LegacyDispatcher(null);
+
+        // A zero struct is not what the bytes held: returning one would hand a caller a fabricated value.
+        var ex = Assert.Throws<InvalidCastException>(() => dispatcher.Deserialize<ReadMpStruct>(s_mpBytes));
+        Assert.Contains(typeof(ReadMpStruct).FullName!, ex.Message, StringComparison.Ordinal);
+        Assert.Contains("returned null", ex.Message, StringComparison.Ordinal);
+        Assert.Contains("non-nullable value type", ex.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -284,5 +305,7 @@ public class DispatcherGenericDeserializeTests
         ISerializerDispatcher dispatcher = new LegacyDispatcher("not a struct");
 
         Assert.Throws<InvalidCastException>(() => dispatcher.Deserialize<ReadMpStruct>(s_mpBytes));
+        Assert.Throws<InvalidCastException>(() => dispatcher.Deserialize<ReadMpStruct?>(s_mpBytes));
+        Assert.Throws<InvalidCastException>(() => dispatcher.Deserialize<StjOrder>(s_stjBytes));
     }
 }
