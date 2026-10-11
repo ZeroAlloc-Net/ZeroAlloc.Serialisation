@@ -98,6 +98,47 @@ public sealed class StructSerializerCompilationTests
         Assert.DoesNotContain("Demo.MemPoint?", text, System.StringComparison.Ordinal);
     }
 
+    // The generic Serialize<T>(IBufferWriter<byte>, T) reinterprets T with Unsafe.As where the framework has
+    // it, and casts through object elsewhere, such as in a netstandard2.1 consumer. Both branches must compile
+    // for struct and class targets.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Dispatcher_GenericSerialize_CompilesWithAndWithoutUnsafe(bool frameworkHasUnsafe)
+    {
+        var source = """
+            using ZeroAlloc.Serialisation;
+            namespace Demo;
+            [MemoryPack.MemoryPackable]
+            [ZeroAllocSerializable(SerializationFormat.MemoryPack)]
+            public partial struct MemPoint
+            {
+                public int X { get; set; }
+            }
+            [global::MessagePack.MessagePackObject]
+            [ZeroAllocSerializable(SerializationFormat.MessagePack)]
+            public class MsgPoint
+            {
+                [global::MessagePack.Key(0)] public int X { get; set; }
+            }
+            """;
+
+        var (output, generated) = RunGenerator(source, new CSharpParseOptions(preprocessorSymbols: frameworkHasUnsafe ? new[] { "NETCOREAPP3_0_OR_GREATER" } : null));
+
+        var dispatcher = generated.Single(t => t.FilePath.EndsWith("SerializerDispatcher.g.cs", System.StringComparison.Ordinal));
+        var text = dispatcher.GetText().ToString();
+        Assert.Contains("public void Serialize<T>(IBufferWriter<byte> writer, T value)", text, System.StringComparison.Ordinal);
+        Assert.Contains("if (typeof(T) == typeof(global::Demo.MemPoint))", text, System.StringComparison.Ordinal);
+        Assert.Contains("Unsafe.As<T, global::Demo.MemPoint>(ref value)", text, System.StringComparison.Ordinal);
+        Assert.Contains("(global::Demo.MemPoint)(object)value!", text, System.StringComparison.Ordinal);
+
+        var errors = output.GetDiagnostics()
+            .Where(static d => d.Severity == DiagnosticSeverity.Error)
+            .Select(static d => d.ToString())
+            .ToArray();
+        Assert.True(errors.Length == 0, string.Join('\n', errors));
+    }
+
     private static void AssertCompilesWithoutErrors(string source, string typeName)
     {
         var (output, generated) = RunGenerator(source);
@@ -112,7 +153,8 @@ public sealed class StructSerializerCompilationTests
         Assert.True(errors.Length == 0, string.Join('\n', errors));
     }
 
-    private static (Compilation Output, IReadOnlyList<SyntaxTree> Generated) RunGenerator(string source)
+    private static (Compilation Output, IReadOnlyList<SyntaxTree> Generated) RunGenerator(
+        string source, CSharpParseOptions? parseOptions = null)
     {
         var references = new List<MetadataReference>(Basic.Reference.Assemblies.Net100.References.All)
         {
@@ -126,11 +168,11 @@ public sealed class StructSerializerCompilationTests
 
         var compilation = CSharpCompilation.Create(
             "TestAssembly",
-            new[] { CSharpSyntaxTree.ParseText(source) },
+            new[] { CSharpSyntaxTree.ParseText(source, parseOptions) },
             references,
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary, nullableContextOptions: NullableContextOptions.Enable));
 
-        CSharpGeneratorDriver.Create(new SerializerGenerator())
+        CSharpGeneratorDriver.Create(new[] { new SerializerGenerator().AsSourceGenerator() }, parseOptions: parseOptions)
             .RunGeneratorsAndUpdateCompilation(compilation, out var output, out var diagnostics);
 
         Assert.DoesNotContain(diagnostics, static d => d.Severity == DiagnosticSeverity.Error);

@@ -57,9 +57,11 @@ The raw System.Text.Json row reuses one `Utf8JsonWriter`, as a caller writing to
 | Generated Serialize, all three formats | 0 B |
 | Generated Deserialize, all three formats | 64 B, the result |
 | Dispatcher Deserialize, all three formats | 64 B, the result |
-| Dispatcher Serialize | 312 B, the `ArrayBufferWriter<byte>` and array it returns |
+| Dispatcher `Serialize(object, Type)` | 312 B, the `ArrayBufferWriter<byte>` and array it returns, and the box for a struct |
+| Dispatcher `Serialize(writer, value, type)` into a reused writer | 0 B |
+| Dispatcher `Serialize<T>(writer, value)` into a reused writer, class or struct | 0 B |
 
-The dispatcher's `Serialize` returns memory the caller owns, so that buffer is its contract.
+The dispatcher's `Serialize(object, Type)` returns memory the caller owns, so that buffer is its contract. The `IBufferWriter<byte>` overloads write into the caller's writer instead, and the generic one does not box a struct; `DispatcherBufferWriterTests` asserts 0 B for the generic overload with a struct in each of the three formats and with a class, and for the by-type overload. A caller that needs an exact-size `byte[]` pays for that array only: one `ToArray()` of the written span, against 376 to 416 B for `Serialize(object, Type)` followed by `ToArray()`.
 <!-- BENCH:END -->
 
 ## When the wrapper makes sense

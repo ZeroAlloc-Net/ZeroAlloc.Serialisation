@@ -65,17 +65,41 @@ public sealed partial class SerializerDispatcher : ISerializerDispatcher
     public ReadOnlyMemory<byte> Serialize(object value, Type type)
     {
         var __writer = new ArrayBufferWriter<byte>();
+        Serialize(__writer, value, type);
+        return __writer.WrittenMemory;
+    }
+
+    public void Serialize(IBufferWriter<byte> writer, object value, Type type)
+    {
+        if (writer is null) throw new ArgumentNullException(nameof(writer));
+
         switch (value)
         {
-            case global::MyApp.OrderCreated __e: __zaSerializer0.Serialize(__writer, __e); break;
-            case global::MyApp.OrderShipped __e: __zaSerializer1.Serialize(__writer, __e); break;
+            case global::MyApp.OrderCreated __e: __zaSerializer0.Serialize(writer, __e); break;
+            case global::MyApp.OrderShipped __e: __zaSerializer1.Serialize(writer, __e); break;
             default:
                 throw new NotSupportedException(
                     $"No serializer registered for {type.FullName}. " +
                     "Ensure the type is annotated with [ZeroAllocSerializable], or for a closed generic type, " +
                     "declared with [assembly: ZeroAllocSerializable(typeof(...), format)].");
         }
-        return __writer.WrittenMemory;
+    }
+
+    public void Serialize<T>(IBufferWriter<byte> writer, T value)
+    {
+        if (writer is null) throw new ArgumentNullException(nameof(writer));
+
+        if (typeof(T) == typeof(global::MyApp.OrderCreated))
+        {
+#if NETCOREAPP3_0_OR_GREATER
+            __zaSerializer0.Serialize(writer, global::System.Runtime.CompilerServices.Unsafe.As<T, global::MyApp.OrderCreated>(ref value));
+#else
+            __zaSerializer0.Serialize(writer, (global::MyApp.OrderCreated)(object)value!);
+#endif
+            return;
+        }
+        // ... one block per registered type ...
+        Serialize(writer, value!, typeof(T));
     }
 
     public object? Deserialize(ReadOnlyMemory<byte> data, Type type)
@@ -91,7 +115,9 @@ public sealed partial class SerializerDispatcher : ISerializerDispatcher
 }
 ```
 
-The generated serializers are sealed and keep no per-call state, so the dispatcher creates each one once and shares it. `Serialize` returns memory the caller owns, so it allocates that buffer; nothing else is allocated per call beyond what the backend allocates.
+The generated serializers are sealed and keep no per-call state, so the dispatcher creates each one once and shares it. `Serialize(object, Type)` returns memory the caller owns, so it allocates that buffer; nothing else is allocated per call beyond what the backend allocates.
+
+The two `IBufferWriter<byte>` overloads write straight into the caller's writer. In `Serialize<T>`, `typeof(T) == typeof(X)` is a constant in each compiled instantiation, so only the matching block remains, and `Unsafe.As` passes a struct to its serializer without boxing it. A consumer whose framework has no `Unsafe`, such as one targeting netstandard2.1, gets a cast through `object` instead, which the JIT also compiles to no box once it optimizes the method. See [Serializing into your own `IBufferWriter<byte>`](dependency-injection.md#serializing-into-your-own-ibufferwriterbyte).
 
 The `partial` modifier allows adding hand-written cases for types that cannot be annotated. Leave the accessibility modifier off your own part: the generated part is `public`, or `internal` when [`ZeroAllocGeneratedAccessibility`](dependency-injection.md#making-the-generated-registration-internal) is `Internal`.
 

@@ -26,7 +26,24 @@ internal static class DispatcherEmitter
 
         var serializeCases = string.Join(
             "\n            ",
-            models.Select((m, i) => $"case {m.TypeRef} __e: __zaSerializer{i}.Serialize(__writer, __e); break;"));
+            models.Select((m, i) => $"case {m.TypeRef} __e: __zaSerializer{i}.Serialize(writer, __e); break;"));
+
+        // typeof(T) == typeof(X) is a constant in each compiled instantiation, so only the matching branch
+        // survives. Unsafe.As reinterprets T as X without boxing a struct. Where Unsafe is not in the
+        // framework, the (X)(object) cast is the box/unbox pair the JIT removes when it optimizes the method.
+        var genericCases = string.Join(
+            "\n        ",
+            models.Select((m, i) => string.Join(
+                "\n        ",
+                $"if (typeof(T) == typeof({m.TypeRef}))",
+                "{",
+                "#if NETCOREAPP3_0_OR_GREATER",
+                $"    __zaSerializer{i}.Serialize(writer, global::System.Runtime.CompilerServices.Unsafe.As<T, {m.TypeRef}>(ref value));",
+                "#else",
+                $"    __zaSerializer{i}.Serialize(writer, ({m.TypeRef})(object)value!);",
+                "#endif",
+                "    return;",
+                "}")));
 
         var deserializeCases = string.Join(
             "\n        ",
@@ -51,6 +68,15 @@ internal static class DispatcherEmitter
                 public ReadOnlyMemory<byte> Serialize(object value, Type type)
                 {
                     var __writer = new ArrayBufferWriter<byte>();
+                    Serialize(__writer, value, type);
+                    return __writer.WrittenMemory;
+                }
+
+                /// <inheritdoc/>
+                public void Serialize(IBufferWriter<byte> writer, object value, Type type)
+                {
+                    if (writer is null) throw new ArgumentNullException(nameof(writer));
+
                     switch (value)
                     {
                         {{serializeCases}}
@@ -60,7 +86,15 @@ internal static class DispatcherEmitter
                                 "Ensure the type is annotated with [ZeroAllocSerializable], or for a closed generic type, " +
                                 "declared with [assembly: ZeroAllocSerializable(typeof(...), format)].");
                     }
-                    return __writer.WrittenMemory;
+                }
+
+                /// <inheritdoc/>
+                public void Serialize<T>(IBufferWriter<byte> writer, T value)
+                {
+                    if (writer is null) throw new ArgumentNullException(nameof(writer));
+
+                    {{genericCases}}
+                    Serialize(writer, value!, typeof(T));
                 }
 
                 /// <inheritdoc/>

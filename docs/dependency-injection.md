@@ -49,7 +49,35 @@ public class MyEventSerializer(ISerializerDispatcher dispatcher)
 }
 ```
 
-`ISerializerDispatcher.Serialize` allocates an intermediate `ArrayBufferWriter<byte>` buffer by design — this layer is intentionally allocation-tolerant to return a self-contained `ReadOnlyMemory<byte>`.
+`Serialize(object, Type)` returns a self-contained `ReadOnlyMemory<byte>`, so it allocates that buffer, an `ArrayBufferWriter<byte>` and its array, on every call, and boxes a struct value.
+
+### Serializing into your own `IBufferWriter<byte>`
+
+When you already have somewhere to write, such as a pooled writer, a reused `ArrayBufferWriter<byte>` or a pipe, use one of the overloads that write into it:
+
+```csharp
+// Generic: dispatches on typeof(T), so a struct is not boxed.
+dispatcher.Serialize(writer, orderCreated);
+
+// By runtime type, when only a Type is known.
+dispatcher.Serialize(writer, @event, @event.GetType());
+```
+
+The generated `SerializerDispatcher` writes directly into `writer`, with no intermediate buffer. Into a reused writer, `Serialize<T>` allocates nothing for a registered type, struct or class, in any of the three formats, and the by-type overload allocates nothing beyond the box a struct needs to be passed as `object`; the tests assert 0 B. The bytes are appended, so anything the writer already holds is kept.
+
+`Serialize<T>` compares `typeof(T)` with each registered type, a check the JIT and NativeAOT resolve per instantiation. When `T` is not itself a registered type, for example `object` or an interface, it falls back to the runtime-type overload, which boxes a struct.
+
+A consumer that persists a `byte[]` can serialize into a reused writer and copy once to an exact-size array, instead of the dispatcher's buffer plus a `ToArray()` copy:
+
+```csharp
+// t_writer: a [ThreadStatic] ArrayBufferWriter<byte> field, reused across calls on one thread.
+var writer = t_writer ??= new ArrayBufferWriter<byte>();
+writer.ResetWrittenCount();
+dispatcher.Serialize(writer, job);
+byte[] payload = writer.WrittenSpan.ToArray();
+```
+
+Both overloads are default interface members, so an `ISerializerDispatcher` you wrote yourself still compiles and works: its inherited implementation calls your `Serialize(object, Type)` and copies the bytes into the writer. Override them to write directly. `SystemTextJsonFallbackDispatcher` forwards both to the dispatcher it wraps and serializes an unregistered type with `System.Text.Json`, as its memory-returning `Serialize` does.
 
 ## Making the Generated Registration Internal
 

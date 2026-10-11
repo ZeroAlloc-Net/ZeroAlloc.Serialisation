@@ -7,8 +7,9 @@ namespace ZeroAlloc.Serialisation.Benchmarks;
 /// <summary>
 /// The serializers the generator emits, called directly and through the generated
 /// <c>SerializerDispatcher</c>. Direct Serialize writes into one reused buffer writer, so the
-/// allocation column is the serializer's own. The dispatcher's Serialize returns memory the caller
-/// owns, so it allocates that buffer by contract.
+/// allocation column is the serializer's own. The dispatcher's memory-returning Serialize returns
+/// memory the caller owns, so it allocates that buffer by contract; its IBufferWriter overloads write
+/// into the same reused writer instead.
 /// </summary>
 [MemoryDiagnoser]
 [SimpleJob]
@@ -17,6 +18,7 @@ public class GeneratedSerializerBenchmarks
     private static readonly GenMpDto s_mp = new() { Id = 42, Name = "Alice" };
     private static readonly GenMsgDto s_msg = new() { Id = 42, Name = "Alice" };
     private static readonly GenStjDto s_stj = new() { Id = 42, Name = "Alice" };
+    private static readonly GenMpStructDto s_mpStruct = new() { Id = 42, Name = "Alice" };
 
     private readonly GenMpDtoSerializer _mp = new();
     private readonly GenMsgDtoSerializer _msg = new();
@@ -74,6 +76,33 @@ public class GeneratedSerializerBenchmarks
 
     [Benchmark]
     public ReadOnlyMemory<byte> Dispatcher_Serialize_SystemTextJson() => _dispatcher.Serialize(s_stj, typeof(GenStjDto));
+
+    [Benchmark]
+    public ReadOnlyMemory<byte> Dispatcher_Serialize_MemoryPackStruct() => _dispatcher.Serialize(s_mpStruct, typeof(GenMpStructDto));
+
+    [Benchmark]
+    public int Dispatcher_SerializeToWriter_ByType_SystemTextJson()
+    {
+        _buffer.ResetWrittenCount();
+        _dispatcher.Serialize(_buffer, s_stj, typeof(GenStjDto));
+        return _buffer.WrittenCount;
+    }
+
+    [Benchmark]
+    public int Dispatcher_SerializeToWriter_Generic_SystemTextJson()
+    {
+        _buffer.ResetWrittenCount();
+        _dispatcher.Serialize(_buffer, s_stj);
+        return _buffer.WrittenCount;
+    }
+
+    [Benchmark]
+    public int Dispatcher_SerializeToWriter_Generic_MemoryPackStruct()
+    {
+        _buffer.ResetWrittenCount();
+        _dispatcher.Serialize(_buffer, s_mpStruct);
+        return _buffer.WrittenCount;
+    }
 
     [Benchmark]
     public object? Dispatcher_Deserialize_MemoryPack() => _dispatcher.Deserialize(_mpBytes, typeof(GenMpDto));

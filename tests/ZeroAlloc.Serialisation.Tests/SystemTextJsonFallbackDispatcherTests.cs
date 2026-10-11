@@ -138,6 +138,73 @@ public sealed class SystemTextJsonFallbackDispatcherTests
         Assert.Contains("\"label\"", json);
     }
 
+    // ── IBufferWriter overloads ───────────────────────────────────────────────
+
+    [Fact]
+    public void SerializeToWriter_UsesInnerDispatcher_WhenTypeIsKnown()
+    {
+        var sut = new SystemTextJsonFallbackDispatcher(new StubDispatcher());
+        var byType = new System.Buffers.ArrayBufferWriter<byte>();
+        var generic = new System.Buffers.ArrayBufferWriter<byte>();
+
+        sut.Serialize(byType, new Point(1, 2), typeof(Point));
+        sut.Serialize(generic, new Point(1, 2));
+
+        Assert.Equal(StubDispatcher.PointSentinel, byType.WrittenSpan.ToArray());
+        Assert.Equal(StubDispatcher.PointSentinel, generic.WrittenSpan.ToArray());
+    }
+
+    [Fact]
+    public void SerializeToWriter_FallsBackToTheSameBytesAsTheMemoryOverload_WhenTypeIsUnknown()
+    {
+        var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
+        var sut = new SystemTextJsonFallbackDispatcher(new StubDispatcher(), options);
+        var o = new Other("hello");
+        var expected = sut.Serialize(o, typeof(Other)).ToArray();
+        var byType = new System.Buffers.ArrayBufferWriter<byte>();
+        var generic = new System.Buffers.ArrayBufferWriter<byte>();
+
+        sut.Serialize(byType, o, typeof(Other));
+        sut.Serialize(generic, o);
+
+        Assert.Equal(expected, byType.WrittenSpan.ToArray());
+        Assert.Equal(expected, generic.WrittenSpan.ToArray());
+    }
+
+    [Fact]
+    public void SerializeToWriter_PropagatesNonNotSupportedException()
+    {
+        var sut = new SystemTextJsonFallbackDispatcher(new ThrowingDispatcher(new InvalidOperationException("boom")));
+        var writer = new System.Buffers.ArrayBufferWriter<byte>();
+
+        Assert.Throws<InvalidOperationException>(() => sut.Serialize(writer, new Other("x"), typeof(Other)));
+        Assert.Throws<InvalidOperationException>(() => sut.Serialize(writer, new Other("x")));
+    }
+
+    [Fact]
+    public void SerializeToWriter_NullWriter_Throws()
+    {
+        var sut = new SystemTextJsonFallbackDispatcher(new StubDispatcher());
+
+        Assert.Throws<ArgumentNullException>(() => sut.Serialize(null!, new Other("x"), typeof(Other)));
+        Assert.Throws<ArgumentNullException>(() => sut.Serialize(null!, new Other("x")));
+    }
+
+    [Fact]
+    public void SerializeToWriter_OverGeneratedDispatcher_RegisteredStruct_AllocatesNothing()
+    {
+        var sut = new SystemTextJsonFallbackDispatcher(new SerializerDispatcher());
+        var value = new DispatchStjStruct(7, "seven");
+        var writer = new System.Buffers.ArrayBufferWriter<byte>(1024);
+
+        for (var i = 0; i < 20; i++) { writer.ResetWrittenCount(); sut.Serialize(writer, value); }
+        var before = GC.GetAllocatedBytesForCurrentThread();
+        for (var i = 0; i < 200; i++) { writer.ResetWrittenCount(); sut.Serialize(writer, value); }
+        var perCall = (GC.GetAllocatedBytesForCurrentThread() - before) / 200;
+
+        Assert.Equal(0, perCall);
+    }
+
     // ── helper: dispatcher that throws a configurable exception ──────────────
 
     private sealed class ThrowingDispatcher(Exception ex) : ISerializerDispatcher

@@ -86,6 +86,15 @@ public class EventStore(ISerializerDispatcher dispatcher)
 
 The generated `SerializerDispatcher` uses a compile-time switch — no reflection, no dictionary lookup, AOT-safe.
 
+`Serialize(object, Type)` allocates the buffer it returns. To avoid that, write into an `IBufferWriter<byte>` you own; the generic overload also avoids boxing a struct, and both allocate 0 B into a reused writer:
+
+```csharp
+dispatcher.Serialize(writer, orderCreated);                 // generic, dispatches on typeof(T)
+dispatcher.Serialize(writer, @event, @event.GetType());     // by runtime type
+```
+
+See [Serializing into your own `IBufferWriter<byte>`](docs/dependency-injection.md#serializing-into-your-own-ibufferwriterbyte).
+
 ## Packages
 
 | Package | Description | TFM |
