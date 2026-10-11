@@ -22,6 +22,11 @@ namespace ZeroAlloc.Serialisation;
 /// into your writer. A dispatcher written by hand that implements only the two original members inherits
 /// default implementations that call <see cref="Serialize(object, Type)"/> and copy its bytes into the writer.
 /// </para>
+/// <para>
+/// <see cref="Deserialize(ReadOnlyMemory{byte}, Type)"/> returns <see cref="object"/>, so a struct read back
+/// through it is boxed. <see cref="Deserialize{T}(ReadOnlyMemory{byte})"/> returns the value as
+/// <c>T</c> without boxing it.
+/// </para>
 /// </remarks>
 public interface ISerializerDispatcher
 {
@@ -94,4 +99,36 @@ public interface ISerializerDispatcher
     /// <returns>The deserialized object, or <see langword="null"/> if the underlying serializer returns null.</returns>
     /// <exception cref="NotSupportedException">Thrown when no serializer is registered for <paramref name="type"/>.</exception>
     object? Deserialize(ReadOnlyMemory<byte> data, Type type);
+
+    /// <summary>
+    /// Deserializes <paramref name="data"/> to a <typeparamref name="T"/>, using the serializer registered
+    /// for <typeparamref name="T"/>, without boxing a value type.
+    /// </summary>
+    /// <typeparam name="T">The target type. Must be registered as for <see cref="Deserialize(ReadOnlyMemory{byte}, Type)"/>.
+    /// Reading has no runtime type to dispatch on, so a type that is not itself registered, such as
+    /// <see cref="object"/>, an interface or <see cref="Nullable{T}"/> of a registered struct, throws
+    /// <see cref="NotSupportedException"/>, as <see cref="Deserialize(ReadOnlyMemory{byte}, Type)"/> does with
+    /// <c>typeof(T)</c>.</typeparam>
+    /// <param name="data">The raw bytes to deserialize.</param>
+    /// <returns>The deserialized value. For empty <paramref name="data"/>, or when the underlying serializer
+    /// returns null, <see langword="default"/>: <see langword="null"/> for a reference type, the zero value for
+    /// a value type.</returns>
+    /// <remarks>
+    /// <para>
+    /// The generated <c>SerializerDispatcher</c> compares <c>typeof(T)</c> with each registered type and returns
+    /// that type's serializer result directly, so a struct is not boxed. Reading a registered type allocates
+    /// nothing beyond what the format's own deserializer allocates for the value. The data is read where it is:
+    /// a MessagePack payload is passed to MessagePack as memory, without the copy that the span-based
+    /// <see cref="ISerializer{T}.Deserialize(ReadOnlySpan{byte})"/> makes for that format.
+    /// </para>
+    /// <para>
+    /// The default implementation, used by a dispatcher that does not override it, calls
+    /// <see cref="Deserialize(ReadOnlyMemory{byte}, Type)"/> with <c>typeof(T)</c> and unboxes the result.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="NotSupportedException">Thrown when no serializer is registered for <typeparamref name="T"/>.</exception>
+    /// <exception cref="InvalidCastException">Thrown by the default implementation when
+    /// <see cref="Deserialize(ReadOnlyMemory{byte}, Type)"/> returns an object that is not a <typeparamref name="T"/>.</exception>
+    T? Deserialize<T>(ReadOnlyMemory<byte> data)
+        => Deserialize(data, typeof(T)) is { } value ? (T)value : default;
 }

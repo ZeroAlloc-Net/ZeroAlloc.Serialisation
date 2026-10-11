@@ -118,4 +118,22 @@ public sealed class SystemTextJsonFallbackDispatcher : ISerializerDispatcher
             return JsonSerializer.Deserialize(data.Span, type, _options);
         }
     }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// Reads through the inner dispatcher's <see cref="ISerializerDispatcher.Deserialize{T}(ReadOnlyMemory{byte})"/>,
+    /// so a registered struct is returned without boxing. An unregistered type is read with
+    /// <see cref="JsonSerializer"/> as <typeparamref name="T"/>, with the same options as the object-returning overload.
+    /// </remarks>
+    public T? Deserialize<T>(ReadOnlyMemory<byte> data)
+    {
+        try
+        {
+            return _inner.Deserialize<T>(data);
+        }
+        catch (NotSupportedException)
+        {
+            return JsonSerializer.Deserialize<T>(data.Span, _options);
+        }
+    }
 }

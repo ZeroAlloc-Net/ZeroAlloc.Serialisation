@@ -2,7 +2,7 @@ using MemoryPack;
 
 namespace ZeroAlloc.Serialisation.Benchmarks;
 
-// A value type, for the dispatcher's generic IBufferWriter overload: the object-typed overload boxes it.
+// A value type, for the dispatcher's generic overloads: the object-typed overloads box it.
 [MemoryPackable]
 [ZeroAllocSerializable(SerializationFormat.MemoryPack)]
 public partial struct GenMpStructDto

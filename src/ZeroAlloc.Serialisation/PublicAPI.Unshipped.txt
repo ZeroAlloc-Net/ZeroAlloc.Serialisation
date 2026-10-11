@@ -1,1 +1,2 @@
 #nullable enable
+ZeroAlloc.Serialisation.ISerializerDispatcher.Deserialize<T>(System.ReadOnlyMemory<byte> data) -> T?

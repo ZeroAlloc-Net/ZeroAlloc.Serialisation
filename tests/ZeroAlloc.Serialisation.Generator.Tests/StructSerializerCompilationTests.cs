@@ -139,6 +139,49 @@ public sealed class StructSerializerCompilationTests
         Assert.True(errors.Length == 0, string.Join('\n', errors));
     }
 
+    // The generic Deserialize<T>(ReadOnlyMemory<byte>) reinterprets the serializer's result as T the same way.
+    // A class target reads as X?, and a MessagePack target reads the caller's memory through DeserializeMemory.
+    // Both branches must compile, and without warnings, since consumers may build with warnings as errors.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Dispatcher_GenericDeserialize_CompilesWithAndWithoutUnsafe(bool frameworkHasUnsafe)
+    {
+        var source = """
+            using ZeroAlloc.Serialisation;
+            namespace Demo;
+            [MemoryPack.MemoryPackable]
+            [ZeroAllocSerializable(SerializationFormat.MemoryPack)]
+            public partial struct MemPoint
+            {
+                public int X { get; set; }
+            }
+            [global::MessagePack.MessagePackObject]
+            [ZeroAllocSerializable(SerializationFormat.MessagePack)]
+            public class MsgPoint
+            {
+                [global::MessagePack.Key(0)] public int X { get; set; }
+            }
+            """;
+
+        var (output, generated) = RunGenerator(source, new CSharpParseOptions(preprocessorSymbols: frameworkHasUnsafe ? new[] { "NETCOREAPP3_0_OR_GREATER" } : null));
+
+        var dispatcher = generated.Single(t => t.FilePath.EndsWith("SerializerDispatcher.g.cs", System.StringComparison.Ordinal));
+        var text = dispatcher.GetText().ToString();
+        Assert.Contains("public T? Deserialize<T>(ReadOnlyMemory<byte> data)", text, System.StringComparison.Ordinal);
+        Assert.Contains("global::Demo.MemPoint __v = __zaSerializer0.Deserialize(data.Span);", text, System.StringComparison.Ordinal);
+        Assert.Contains("global::Demo.MsgPoint? __v = global::Demo.MsgPointSerializer.DeserializeMemory(data);", text, System.StringComparison.Ordinal);
+        Assert.Contains("Unsafe.As<global::Demo.MemPoint, T>(ref __v)", text, System.StringComparison.Ordinal);
+        Assert.Contains("Unsafe.As<global::Demo.MsgPoint?, T>(ref __v)", text, System.StringComparison.Ordinal);
+        Assert.Contains("return (T?)(object?)__v;", text, System.StringComparison.Ordinal);
+
+        var problems = output.GetDiagnostics()
+            .Where(d => d.Severity >= DiagnosticSeverity.Warning && d.Location.SourceTree == dispatcher)
+            .Select(static d => d.ToString())
+            .ToArray();
+        Assert.True(problems.Length == 0, string.Join('\n', problems));
+    }
+
     private static void AssertCompilesWithoutErrors(string source, string typeName)
     {
         var (output, generated) = RunGenerator(source);

@@ -261,7 +261,7 @@ try
     if (dispatcher.Deserialize(stjStructDisp, typeof(StjStructMessage)) is not StjStructMessage stjStructDispBack
         || stjStructDispBack != stjStruct)
         valueTypeFailures.Add("stj struct dispatcher round-trip mismatch");
-    CheckDispatcherWriterOverloads("stj struct", dispatcher, stjStruct, stjStructBuf.WrittenSpan, valueTypeFailures);
+    CheckDispatcherGenericOverloads("stj struct", dispatcher, stjStruct, stjStructBuf.WrittenMemory, valueTypeFailures);
 
     var mpStruct = new MpStructMessage(8, "eight");
     var mpStructBuf = new ArrayBufferWriter<byte>();
@@ -275,7 +275,7 @@ try
     if (dispatcher.Deserialize(mpStructDisp, typeof(MpStructMessage)) is not MpStructMessage mpStructDispBack
         || mpStructDispBack != mpStruct)
         valueTypeFailures.Add("memorypack struct dispatcher round-trip mismatch");
-    CheckDispatcherWriterOverloads("memorypack struct", dispatcher, mpStruct, mpStructBuf.WrittenSpan, valueTypeFailures);
+    CheckDispatcherGenericOverloads("memorypack struct", dispatcher, mpStruct, mpStructBuf.WrittenMemory, valueTypeFailures);
 
     var msgpStruct = new MsgpStructMessage(9, "nine");
     var msgpStructBuf = new ArrayBufferWriter<byte>();
@@ -292,33 +292,37 @@ try
     if (dispatcher.Deserialize(msgpStructDisp, typeof(MsgpStructMessage)) is not MsgpStructMessage msgpStructDispBack
         || msgpStructDispBack != msgpStruct)
         valueTypeFailures.Add("messagepack struct dispatcher round-trip mismatch");
-    CheckDispatcherWriterOverloads("messagepack struct", dispatcher, msgpStruct, msgpStructBuf.WrittenSpan, valueTypeFailures);
+    CheckDispatcherGenericOverloads("messagepack struct", dispatcher, msgpStruct, msgpStructBuf.WrittenMemory, valueTypeFailures);
 }
 catch (Exception ex)
 {
     valueTypeFailures.Add($"struct serializers threw {ex.GetType().Name}: {ex.Message}");
 }
 
-// The IBufferWriter overloads, #201: Serialize<T> dispatches on typeof(T) and reinterprets T with
-// Unsafe.As, a generic path NativeAOT compiles per value-type instantiation, so it is checked here
-// against the serializer's own bytes, next to the by-type overload.
-static void CheckDispatcherWriterOverloads<T>(
+// The IBufferWriter overloads, #201, and the generic Deserialize<T>, #205: both dispatch on typeof(T)
+// and reinterpret with Unsafe.As, a generic path NativeAOT compiles per value-type instantiation, so
+// they are checked here against the serializer's own bytes and the original value.
+static void CheckDispatcherGenericOverloads<T>(
     string label,
     ISerializerDispatcher dispatcher,
     T value,
-    ReadOnlySpan<byte> expected,
+    ReadOnlyMemory<byte> expected,
     System.Collections.Generic.List<string> failures)
     where T : notnull
 {
     var generic = new ArrayBufferWriter<byte>();
     dispatcher.Serialize(generic, value);
-    if (!generic.WrittenSpan.SequenceEqual(expected))
+    if (!generic.WrittenSpan.SequenceEqual(expected.Span))
         failures.Add($"{label} dispatcher Serialize<T> into a writer: bytes differ from serializer bytes");
 
     var byType = new ArrayBufferWriter<byte>();
     dispatcher.Serialize(byType, value, typeof(T));
-    if (!byType.WrittenSpan.SequenceEqual(expected))
+    if (!byType.WrittenSpan.SequenceEqual(expected.Span))
         failures.Add($"{label} dispatcher Serialize by type into a writer: bytes differ from serializer bytes");
+
+    var back = dispatcher.Deserialize<T>(expected);
+    if (!System.Collections.Generic.EqualityComparer<T>.Default.Equals(back, value))
+        failures.Add($"{label} dispatcher Deserialize<T> round-trip={back}");
 }
 
 // Nullable [ValueObject] member under STJ source-gen: value and null.
@@ -512,7 +516,7 @@ static void CheckClosedGeneric<T>(
         if (dispatcher.Deserialize(dispatched, typeof(T)) is not T dispatchedBack
             || !System.Collections.Generic.EqualityComparer<T>.Default.Equals(dispatchedBack, value))
             failures.Add($"{label} dispatcher round-trip mismatch");
-        CheckDispatcherWriterOverloads(label, dispatcher, value, buf.WrittenSpan, failures);
+        CheckDispatcherGenericOverloads(label, dispatcher, value, buf.WrittenMemory, failures);
     }
     catch (Exception ex)
     {
@@ -555,7 +559,7 @@ if (shapesOk)
 var valueTypesOk = valueTypeFailures.Count == 0;
 if (valueTypesOk)
 {
-    Console.WriteLine("AOT smoke: value types OK (struct serializers x3 + dispatcher incl. IBufferWriter overloads, nullable VO STJ + MessagePack, SystemTextJsonSerializer<int?>)");
+    Console.WriteLine("AOT smoke: value types OK (struct serializers x3 + dispatcher incl. IBufferWriter overloads and Deserialize<T>, nullable VO STJ + MessagePack, SystemTextJsonSerializer<int?>)");
 }
 
 // AOT-safe adapter constructors: MemoryPackableSerializer<T> registers the formatter without reflection, and

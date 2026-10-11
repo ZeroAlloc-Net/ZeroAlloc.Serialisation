@@ -29,6 +29,7 @@ public class GeneratedSerializerBenchmarks
     private byte[] _mpBytes = [];
     private byte[] _msgBytes = [];
     private byte[] _stjBytes = [];
+    private ReadOnlyMemory<byte> _mpStructBytes;
 
     [GlobalSetup]
     public void Setup()
@@ -36,6 +37,7 @@ public class GeneratedSerializerBenchmarks
         _mpBytes = _dispatcher.Serialize(s_mp, typeof(GenMpDto)).ToArray();
         _msgBytes = _dispatcher.Serialize(s_msg, typeof(GenMsgDto)).ToArray();
         _stjBytes = _dispatcher.Serialize(s_stj, typeof(GenStjDto)).ToArray();
+        _mpStructBytes = _dispatcher.Serialize(s_mpStruct, typeof(GenMpStructDto)).ToArray();
     }
 
     [Benchmark]
@@ -112,4 +114,10 @@ public class GeneratedSerializerBenchmarks
 
     [Benchmark]
     public object? Dispatcher_Deserialize_SystemTextJson() => _dispatcher.Deserialize(_stjBytes, typeof(GenStjDto));
+
+    [Benchmark]
+    public object? Dispatcher_Deserialize_MemoryPackStruct() => _dispatcher.Deserialize(_mpStructBytes, typeof(GenMpStructDto));
+
+    [Benchmark]
+    public GenMpStructDto Dispatcher_Deserialize_Generic_MemoryPackStruct() => _dispatcher.Deserialize<GenMpStructDto>(_mpStructBytes);
 }

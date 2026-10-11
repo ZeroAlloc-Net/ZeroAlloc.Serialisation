@@ -79,6 +79,24 @@ byte[] payload = writer.WrittenSpan.ToArray();
 
 Both overloads are default interface members, so an `ISerializerDispatcher` you wrote yourself still compiles and works: its inherited implementation calls your `Serialize(object, Type)` and copies the bytes into the writer. Override them to write directly. `SystemTextJsonFallbackDispatcher` forwards both to the dispatcher it wraps and serializes an unregistered type with `System.Text.Json`, as its memory-returning `Serialize` does.
 
+### Deserializing to a known type
+
+`Deserialize(ReadOnlyMemory<byte>, Type)` returns `object`, so a struct comes back boxed and the caller unboxes it. When the type is known at compile time, use the generic overload:
+
+```csharp
+OrderCreated created = dispatcher.Deserialize<OrderCreated>(data);
+```
+
+The generated `SerializerDispatcher` compares `typeof(T)` with each registered type and returns that type's serializer result as `T`, so a struct is not boxed. It allocates nothing beyond what the format's own deserializer allocates for the value; the tests assert that it allocates exactly as much as the per-type serializer, and exactly one 32 B box less than the `object` overload for a 16-byte struct, in all three formats.
+
+What the format itself allocates depends on the type. For a struct with no reference members, MemoryPack and MessagePack allocate nothing, so the call is 0 B. System.Text.Json builds a struct as a boxed object inside `JsonSerializer.Deserialize` and unboxes it at the end, 32 B for that struct, and a positional record struct, which it binds through its constructor, costs it 168 B. Strings and other reference members are allocated by every format.
+
+The parameter is `ReadOnlyMemory<byte>`, like the `object` overload's, because every format reads it without a copy: MessagePack reads memory or a sequence, never a span, so the dispatcher passes it the memory directly, where the span-based `ISerializer<T>.Deserialize` copies a MessagePack payload into a pooled array first. There is no span overload for that reason.
+
+Errors match the `object` overload. A `T` that is not itself a registered type throws `NotSupportedException`, with the same message: reading has no runtime type to dispatch on, so `object`, an interface or `Nullable<T>` of a registered struct is not supported. Empty data returns `default`: `null` for a class, the zero value for a struct.
+
+`Deserialize<T>` is a default interface member too. A dispatcher you wrote yourself inherits an implementation that calls your `Deserialize(data, typeof(T))` and unboxes the result: `default` when it returns `null`, and an `InvalidCastException` when it returns an object that is not a `T`. `SystemTextJsonFallbackDispatcher` forwards `Deserialize<T>` to the dispatcher it wraps, so a registered struct is not boxed there either, and reads an unregistered type with `System.Text.Json` as `T`, with the same options as its `object` overload.
+
 ## Making the Generated Registration Internal
 
 By default every entry point the generator emits is `public`: the `SerializerDispatcher` class, the `SerializerServiceCollectionExtensions` classes with `AddSerializerDispatcher()` and every `Add{TypeName}Serializer()`, and, for `[ValueObject]` types, `ValueObjectJsonConvertersExtensions` and `ValueObjectMessagePackFormattersExtensions`. That is the right default for an application, but usually wrong for a **library**:
