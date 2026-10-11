@@ -10,6 +10,7 @@
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.SourceGenerators.Testing.XUnit" />
     <PackageReference Include="Basic.Reference.Assemblies.Net100" />
+    <PackageReference Include="Basic.Reference.Assemblies.NetStandard21" />
     <ProjectReference Include="../../src/ZeroAlloc.Serialisation.Generator/ZeroAlloc.Serialisation.Generator.csproj" />
     <ProjectReference Include="../../src/ZeroAlloc.Serialisation/ZeroAlloc.Serialisation.csproj" />
     <ProjectReference Include="../../src/ZeroAlloc.Serialisation.SystemTextJson/ZeroAlloc.Serialisation.SystemTextJson.csproj" />

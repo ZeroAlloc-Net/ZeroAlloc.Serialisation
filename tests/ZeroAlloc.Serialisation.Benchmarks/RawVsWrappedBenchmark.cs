@@ -20,6 +20,9 @@ namespace ZeroAlloc.Serialisation.Benchmarks;
 // through its native API and through the ZA.Serialisation wrapper to measure
 // the gap.
 //
+// Both sides of every Serialize pair write into the same reused IBufferWriter<byte>, so the
+// allocation column shows what the wrapper itself allocates rather than the caller's buffer.
+//
 // Expected result: near-parity. Any meaningful overhead is a bug to file.
 [MemoryDiagnoser]
 [SimpleJob]
@@ -38,28 +41,39 @@ public class RawVsWrappedBenchmark
     private byte[] _msgBytes = [];
     private byte[] _stjBytes = [];
 
+    private readonly ArrayBufferWriter<byte> _buffer = new(1024);
+    private Utf8JsonWriter? _rawJsonWriter;
+
     [GlobalSetup]
     public void Setup()
     {
         _mpBytes = global::MemoryPack.MemoryPackSerializer.Serialize(s_dto);
         _msgBytes = global::MessagePack.MessagePackSerializer.Serialize(s_dto);
         _stjBytes = JsonSerializer.SerializeToUtf8Bytes(s_dto, BenchContext.Default.BenchDto);
+        _rawJsonWriter = new Utf8JsonWriter(_buffer);
     }
+
+    [GlobalCleanup]
+    public void Cleanup() => _rawJsonWriter?.Dispose();
 
     // ── MemoryPack: serialize ───────────────────────────────────────────────
 
     [Benchmark(Baseline = true, Description = "Raw MemoryPack: Serialize")]
     [BenchmarkCategory("Serialize_MP")]
-    public byte[] Raw_MemoryPack_Serialize()
-        => global::MemoryPack.MemoryPackSerializer.Serialize(s_dto);
+    public int Raw_MemoryPack_Serialize()
+    {
+        _buffer.ResetWrittenCount();
+        global::MemoryPack.MemoryPackSerializer.Serialize(_buffer, s_dto);
+        return _buffer.WrittenCount;
+    }
 
     [Benchmark(Description = "ZA wrapper over MemoryPack: Serialize")]
     [BenchmarkCategory("Serialize_MP")]
     public int Za_MemoryPack_Serialize()
     {
-        var buf = new ArrayBufferWriter<byte>();
-        _zaMp.Serialize(buf, s_dto);
-        return buf.WrittenCount;
+        _buffer.ResetWrittenCount();
+        _zaMp.Serialize(_buffer, s_dto);
+        return _buffer.WrittenCount;
     }
 
     // ── MemoryPack: deserialize ─────────────────────────────────────────────
@@ -78,16 +92,20 @@ public class RawVsWrappedBenchmark
 
     [Benchmark(Description = "Raw MessagePack: Serialize")]
     [BenchmarkCategory("Serialize_Msg")]
-    public byte[] Raw_MessagePack_Serialize()
-        => global::MessagePack.MessagePackSerializer.Serialize(s_dto);
+    public int Raw_MessagePack_Serialize()
+    {
+        _buffer.ResetWrittenCount();
+        global::MessagePack.MessagePackSerializer.Serialize(_buffer, s_dto);
+        return _buffer.WrittenCount;
+    }
 
     [Benchmark(Description = "ZA wrapper over MessagePack: Serialize")]
     [BenchmarkCategory("Serialize_Msg")]
     public int Za_MessagePack_Serialize()
     {
-        var buf = new ArrayBufferWriter<byte>();
-        _zaMsg.Serialize(buf, s_dto);
-        return buf.WrittenCount;
+        _buffer.ResetWrittenCount();
+        _zaMsg.Serialize(_buffer, s_dto);
+        return _buffer.WrittenCount;
     }
 
     // ── MessagePack: deserialize ────────────────────────────────────────────
@@ -106,16 +124,21 @@ public class RawVsWrappedBenchmark
 
     [Benchmark(Description = "Raw System.Text.Json: Serialize")]
     [BenchmarkCategory("Serialize_Stj")]
-    public byte[] Raw_SystemTextJson_Serialize()
-        => JsonSerializer.SerializeToUtf8Bytes(s_dto, BenchContext.Default.BenchDto);
+    public int Raw_SystemTextJson_Serialize()
+    {
+        _buffer.ResetWrittenCount();
+        _rawJsonWriter!.Reset(_buffer);
+        JsonSerializer.Serialize(_rawJsonWriter, s_dto, BenchContext.Default.BenchDto);
+        return _buffer.WrittenCount;
+    }
 
     [Benchmark(Description = "ZA wrapper over System.Text.Json: Serialize")]
     [BenchmarkCategory("Serialize_Stj")]
     public int Za_SystemTextJson_Serialize()
     {
-        var buf = new ArrayBufferWriter<byte>();
-        _zaStj.Serialize(buf, s_dto);
-        return buf.WrittenCount;
+        _buffer.ResetWrittenCount();
+        _zaStj.Serialize(_buffer, s_dto);
+        return _buffer.WrittenCount;
     }
 
     // ── System.Text.Json: deserialize ───────────────────────────────────────

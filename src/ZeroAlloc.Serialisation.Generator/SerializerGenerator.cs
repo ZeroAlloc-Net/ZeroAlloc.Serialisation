@@ -121,9 +121,17 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             .Select(static (r, _) => r.Model!)
             .WithTrackingName(TrackingNames.AssemblyModels);
 
+        // Whether the generated MemoryPack and MessagePack serializers can carry
+        // [UnconditionalSuppressMessage]. netstandard2.1 has no such attribute, and the internal
+        // copies that packages such as MessagePack carry are inaccessible, CS0122. A project's own
+        // polyfill counts. Reruns on every edit, but the bool compares equal until references change.
+        var trimSuppressions = context.CompilationProvider
+            .Select(static (compilation, _) => SerializerEmitter.CanEmitTrimSuppressions(compilation))
+            .WithTrackingName(TrackingNames.TrimSuppressions);
+
         // Emit one serializer + DI extension per serializable type
-        context.RegisterSourceOutput(models.Combine(accessibility), static (ctx, pair) => EmitSerializer(ctx, pair.Left, pair.Right));
-        context.RegisterSourceOutput(assemblyModels.Combine(accessibility), static (ctx, pair) => EmitSerializer(ctx, pair.Left, pair.Right));
+        context.RegisterSourceOutput(models.Combine(accessibility).Combine(trimSuppressions), static (ctx, pair) => EmitSerializer(ctx, pair.Left.Left, pair.Left.Right, pair.Right));
+        context.RegisterSourceOutput(assemblyModels.Combine(accessibility).Combine(trimSuppressions), static (ctx, pair) => EmitSerializer(ctx, pair.Left.Left, pair.Left.Right, pair.Right));
 
         // Emit one dispatcher covering ALL serializable types in the assembly
         var allModels = models.Collect().WithTrackingName(TrackingNames.AllModels)
@@ -267,9 +275,9 @@ public sealed class SerializerGenerator : IIncrementalGenerator
     }
 
     private static void EmitSerializer(
-        SourceProductionContext ctx, Models.SerializerModel model, Models.GeneratedAccessibility accessibility)
+        SourceProductionContext ctx, Models.SerializerModel model, Models.GeneratedAccessibility accessibility, bool trimSuppressions)
     {
-        SerializerEmitter.Emit(ctx, model);
+        SerializerEmitter.Emit(ctx, model, trimSuppressions);
         DiEmitter.Emit(ctx, model, accessibility.Keyword);
     }
 }

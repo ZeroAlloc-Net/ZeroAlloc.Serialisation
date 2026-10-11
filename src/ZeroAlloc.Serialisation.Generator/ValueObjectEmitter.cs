@@ -125,12 +125,14 @@ internal static class ValueObjectEmitter
         var (readMethod, writeMethod) = SystemTextJsonReadWriteForType(model);
         var converterName = $"{typeName}SystemTextJsonConverter";
 
-        // STJ's Utf8JsonWriter has no WriteStringValue(TimeSpan) overload — TimeSpan
-        // round-trips through ToString() / Parse(). For all other underlying types
-        // the native overload accepts the property type directly.
-        var writeArgExpr = string.Equals(model.UnderlyingTypeDisplayName, "System.TimeSpan", StringComparison.Ordinal)
-            ? $"value.{model.UnderlyingPropertyName}.ToString()"
-            : $"value.{model.UnderlyingPropertyName}";
+        var (readMember, writeMember) = string.Equals(model.UnderlyingTypeDisplayName, "System.TimeSpan", StringComparison.Ordinal)
+            ? TimeSpanConverterMembers(model)
+            : (MemberLines(
+                   $"public override {typeName} Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)",
+                   $"    => new {typeName}({readMethod});"),
+               MemberLines(
+                   $"public override void Write(Utf8JsonWriter writer, {typeName} value, JsonSerializerOptions options)",
+                   $"    => writer.{writeMethod}(value.{model.UnderlyingPropertyName});"));
 
         var nsOpen = string.IsNullOrEmpty(ns) ? "" : $"namespace {ns};\n\n";
 
@@ -142,11 +144,9 @@ internal static class ValueObjectEmitter
 
             {{SiblingAccessibility(model)}} sealed class {{converterName}} : JsonConverter<{{typeName}}>
             {
-                public override {{typeName}} Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
-                    => new {{typeName}}({{readMethod}});
+                {{readMember}}
 
-                public override void Write(Utf8JsonWriter writer, {{typeName}} value, JsonSerializerOptions options)
-                    => writer.{{writeMethod}}({{writeArgExpr}});
+                {{writeMember}}
             }
 
             """;
@@ -580,6 +580,58 @@ internal static class ValueObjectEmitter
         };
     }
 
+    /// <summary>
+    /// The Read and Write members of a converter for a <see cref="TimeSpan"/> value object. They use
+    /// the constant ("c") format, invariant of culture, that System.Text.Json's own TimeSpan converter
+    /// uses, and format and parse it as UTF-8 on the stack: Utf8JsonWriter has no TimeSpan overload, and
+    /// going through a string would allocate one per value and parse with the current culture.
+    /// </summary>
+    private static (string Read, string Write) TimeSpanConverterMembers(ValueObjectModel model)
+    {
+        var typeName = model.TypeName;
+        var read = MemberLines(
+            $"public override {typeName} Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)",
+            "{",
+            "    if (reader.TokenType != JsonTokenType.String)",
+            "        throw new JsonException(\"A TimeSpan must be a JSON string.\");",
+            "",
+            "    // 26 bytes is the longest constant-format TimeSpan; escaped, each byte may take six.",
+            "    const int MaxEscapedLength = 26 * 6;",
+            "    var length = reader.HasValueSequence ? reader.ValueSequence.Length : reader.ValueSpan.Length;",
+            "    if (length > MaxEscapedLength)",
+            "        throw new JsonException(\"The JSON string is too long to be a TimeSpan.\");",
+            "",
+            "    global::System.Span<byte> utf8 = stackalloc byte[MaxEscapedLength];",
+            "    var written = reader.CopyString(utf8);",
+            "    var text = utf8.Slice(0, written);",
+            "    // Utf8Parser accepts leading and trailing characters System.Text.Json rejects; match it.",
+            "    if (text.IsEmpty",
+            "        || !(text[0] == (byte)'-' || (uint)(text[0] - '0') <= 9)",
+            "        || (uint)(text[text.Length - 1] - '0') > 9",
+            "        || !global::System.Buffers.Text.Utf8Parser.TryParse(text, out global::System.TimeSpan value, out var consumed, 'c')",
+            "        || consumed != text.Length)",
+            "        throw new JsonException(\"The JSON string is not a TimeSpan in the constant (c) format.\");",
+            "",
+            $"    return new {typeName}(value);",
+            "}");
+        var write = MemberLines(
+            $"public override void Write(Utf8JsonWriter writer, {typeName} value, JsonSerializerOptions options)",
+            "{",
+            "    // 26 bytes is the longest constant-format TimeSpan, such as TimeSpan.MinValue.",
+            "    global::System.Span<byte> utf8 = stackalloc byte[26];",
+            $"    global::System.Buffers.Text.Utf8Formatter.TryFormat(value.{model.UnderlyingPropertyName}, utf8, out var written, 'c');",
+            "    writer.WriteStringValue(utf8.Slice(0, written));",
+            "}");
+        return (read, write);
+    }
+
+    /// <summary>
+    /// Joins the lines of a converter member declared at an indent of four spaces: every line after
+    /// the first gets the four spaces, and blank lines stay empty.
+    /// </summary>
+    private static string MemberLines(params string[] lines) =>
+        string.Join("\n", lines.Select((line, i) => i == 0 || line.Length == 0 ? line : "    " + line));
+
     private static (string ReadCall, string WriteMethod) SystemTextJsonReadWriteForType(ValueObjectModel model)
     {
         return model.UnderlyingSpecialType switch
@@ -598,12 +650,6 @@ internal static class ValueObjectEmitter
                 => ("reader.GetDateTime()", "WriteStringValue"),
             _ when string.Equals(model.UnderlyingTypeDisplayName, "System.DateTimeOffset", StringComparison.Ordinal)
                 => ("reader.GetDateTimeOffset()", "WriteStringValue"),
-            _ when string.Equals(model.UnderlyingTypeDisplayName, "System.TimeSpan", StringComparison.Ordinal)
-                // Utf8JsonReader has no GetTimeSpan() pre-.NET 7; TimeSpan.Parse(reader.GetString()!)
-                // is safe and round-trips ISO 8601-ish via value.ToString() on the write side
-                // (handled in EmitSystemTextJsonConverter — there's no WriteStringValue(TimeSpan)
-                // overload either, so we materialise the string explicitly).
-                => ("global::System.TimeSpan.Parse(reader.GetString()!)", "WriteStringValue"),
             _ when string.Equals(model.UnderlyingTypeDisplayName, "byte[]", StringComparison.Ordinal)
                 // Base64 string encoding matches STJ's default byte[] wire format.
                 => ("reader.GetBytesFromBase64()", "WriteBase64StringValue"),

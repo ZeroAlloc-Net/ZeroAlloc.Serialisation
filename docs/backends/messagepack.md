@@ -44,11 +44,15 @@ public class MyEvent
 }
 ```
 
-## Known Limitation: Deserialization Copy
+## Deserializing from a Span
 
-MessagePack 3.x does not expose a `Deserialize(ReadOnlySpan<byte>)` overload — it requires `ReadOnlySequence<byte>`. The `buffer.ToArray()` call inside `Deserialize` is an unavoidable allocation on the deserialization path.
+MessagePack 3.x reads from `ReadOnlyMemory<byte>` or `ReadOnlySequence<byte>`, never from a `ReadOnlySpan<byte>`: its reader is built on `SequenceReader<byte>`. `ISerializer<T>.Deserialize` takes a span, so it copies the span into an array rented from `ArrayPool<byte>.Shared`, deserializes from that, and returns the array. The copy allocates nothing; the only allocations left are the ones MessagePack itself makes for the result.
 
-Serialization remains zero-copy: `MessagePackSerializer.Serialize(IBufferWriter<byte>, T)` writes directly to the buffer.
+The span is not pinned and wrapped in a `MemoryManager<byte>` to skip the copy. A formatter that keeps a slice of its input after `Deserialize` returns would then hold a pointer into memory the garbage collector is free to move. None of MessagePack's built-in formatters keep their input; they copy what they return.
+
+The generated `SerializerDispatcher` already has the payload as `ReadOnlyMemory<byte>`, so for a MessagePack type it hands that memory to MessagePack directly, with no copy at all.
+
+Serialization is zero-copy: `MessagePackSerializer.Serialize(IBufferWriter<byte>, T)` writes directly to the buffer.
 
 ## Options
 
