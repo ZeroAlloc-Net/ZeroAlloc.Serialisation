@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.6.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.6.0...v2.6.1) (2026-10-11)
+
+
+### Performance Improvements
+
+* remove per-call allocations from the serializer hot paths ([#199](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/199)) ([3298124](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/329812453d7f8016fe2c09b185f9238550714fa4)), closes [#198](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/198)
+
 ## [2.6.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.5.1...v2.6.0) (2026-10-10)
 
 
