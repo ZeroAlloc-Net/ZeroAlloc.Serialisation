@@ -1,3 +1,1 @@
 #nullable enable
-ZeroAlloc.Serialisation.ISerializerDispatcher.Serialize(System.Buffers.IBufferWriter<byte>! writer, object! value, System.Type! type) -> void
-ZeroAlloc.Serialisation.ISerializerDispatcher.Serialize<T>(System.Buffers.IBufferWriter<byte>! writer, T value) -> void

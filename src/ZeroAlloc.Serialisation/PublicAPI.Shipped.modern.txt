@@ -4,4 +4,6 @@ ZeroAlloc.Serialisation.SerializerDispatcherFallbackExtensions
 ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher
 ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher.Deserialize(System.ReadOnlyMemory<byte> data, System.Type! type) -> object?
 ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher.Serialize(object! value, System.Type! type) -> System.ReadOnlyMemory<byte>
+ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher.Serialize(System.Buffers.IBufferWriter<byte>! writer, object! value, System.Type! type) -> void
+ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher.Serialize<T>(System.Buffers.IBufferWriter<byte>! writer, T value) -> void
 ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher.SystemTextJsonFallbackDispatcher(ZeroAlloc.Serialisation.ISerializerDispatcher! inner, System.Text.Json.JsonSerializerOptions? options = null) -> void
