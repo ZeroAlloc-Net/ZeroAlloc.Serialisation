@@ -4,6 +4,7 @@ using System.Text.Json.Serialization;
 using MemoryPack;
 using MessagePack;
 using Xunit;
+using ZeroAlloc.TestHelpers;
 
 namespace ZeroAlloc.Serialisation.Tests;
 
@@ -46,15 +47,6 @@ public class DispatcherGenericDeserializeTests
 {
     private const int Iterations = 200;
 
-    /// <summary>Bytes allocated on this thread per call of <paramref name="action"/>, after warm-up.</summary>
-    private static long AllocatedPerCall(Action action)
-    {
-        for (var i = 0; i < 20; i++) action();
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < Iterations; i++) action();
-        return (GC.GetAllocatedBytesForCurrentThread() - before) / Iterations;
-    }
-
     private static readonly ReadStjStruct s_stj = new(7, 70);
     private static readonly ReadMpStruct s_mp = new(8, 80);
     private static readonly ReadMsgpStruct s_msgp = new(9, 90);
@@ -88,8 +80,8 @@ public class DispatcherGenericDeserializeTests
         var serializer = new ReadStjPropertyStructSerializer();
         ReadStjPropertyStruct result = default;
 
-        var backend = AllocatedPerCall(() => result = serializer.Deserialize(data.Span));
-        var bytes = AllocatedPerCall(() => result = dispatcher.Deserialize<ReadStjPropertyStruct>(data));
+        var backend = AllocationGate.MeasureBytesPerCall(Iterations, () => result = serializer.Deserialize(data.Span));
+        var bytes = AllocationGate.MeasureBytesPerCall(Iterations, () => result = dispatcher.Deserialize<ReadStjPropertyStruct>(data));
 
         // System.Text.Json's object converter builds a value type as a boxed object and unboxes it
         // at the end: one 32 B box for this 16-byte struct, inside JsonSerializer.Deserialize itself.
@@ -108,8 +100,8 @@ public class DispatcherGenericDeserializeTests
 
         // System.Text.Json's own constructor-argument state, not the dispatcher: the per-type
         // serializer costs the same for the same bytes.
-        var backend = AllocatedPerCall(() => result = serializer.Deserialize(s_stjBytes.Span));
-        var bytes = AllocatedPerCall(() => result = dispatcher.Deserialize<ReadStjStruct>(s_stjBytes));
+        var backend = AllocationGate.MeasureBytesPerCall(Iterations, () => result = serializer.Deserialize(s_stjBytes.Span));
+        var bytes = AllocationGate.MeasureBytesPerCall(Iterations, () => result = dispatcher.Deserialize<ReadStjStruct>(s_stjBytes));
 
         Assert.Equal(backend, bytes);
         Assert.Equal(168, bytes);
@@ -122,9 +114,7 @@ public class DispatcherGenericDeserializeTests
         ISerializerDispatcher dispatcher = new SerializerDispatcher();
         ReadMpStruct result = default;
 
-        var bytes = AllocatedPerCall(() => result = dispatcher.Deserialize<ReadMpStruct>(s_mpBytes));
-
-        Assert.Equal(0, bytes);
+        AllocationGate.AssertBudget(0, Iterations, () => result = dispatcher.Deserialize<ReadMpStruct>(s_mpBytes), "Generic_Struct_MemoryPack_AllocatesNothing");
         Assert.Equal(s_mp, result);
     }
 
@@ -136,8 +126,8 @@ public class DispatcherGenericDeserializeTests
 
         // The dispatcher reads the caller's memory directly, so it costs exactly what MessagePack
         // itself costs for the same memory: no box and no copy of the payload.
-        var backend = AllocatedPerCall(() => result = global::MessagePack.MessagePackSerializer.Deserialize<ReadMsgpStruct>(s_msgpBytes));
-        var bytes = AllocatedPerCall(() => result = dispatcher.Deserialize<ReadMsgpStruct>(s_msgpBytes));
+        var backend = AllocationGate.MeasureBytesPerCall(Iterations, () => result = global::MessagePack.MessagePackSerializer.Deserialize<ReadMsgpStruct>(s_msgpBytes));
+        var bytes = AllocationGate.MeasureBytesPerCall(Iterations, () => result = dispatcher.Deserialize<ReadMsgpStruct>(s_msgpBytes));
 
         Assert.Equal(backend, bytes);
         Assert.Equal(0, bytes);
@@ -155,14 +145,14 @@ public class DispatcherGenericDeserializeTests
         const int Box = 32;
 
         Assert.Equal(
-            AllocatedPerCall(() => _ = (ReadStjPropertyStruct)dispatcher.Deserialize(stjData, typeof(ReadStjPropertyStruct))!) - Box,
-            AllocatedPerCall(() => _ = dispatcher.Deserialize<ReadStjPropertyStruct>(stjData)));
+            AllocationGate.MeasureBytesPerCall(Iterations, () => _ = (ReadStjPropertyStruct)dispatcher.Deserialize(stjData, typeof(ReadStjPropertyStruct))!) - Box,
+            AllocationGate.MeasureBytesPerCall(Iterations, () => _ = dispatcher.Deserialize<ReadStjPropertyStruct>(stjData)));
         Assert.Equal(
-            AllocatedPerCall(() => _ = (ReadMpStruct)dispatcher.Deserialize(s_mpBytes, typeof(ReadMpStruct))!) - Box,
-            AllocatedPerCall(() => _ = dispatcher.Deserialize<ReadMpStruct>(s_mpBytes)));
+            AllocationGate.MeasureBytesPerCall(Iterations, () => _ = (ReadMpStruct)dispatcher.Deserialize(s_mpBytes, typeof(ReadMpStruct))!) - Box,
+            AllocationGate.MeasureBytesPerCall(Iterations, () => _ = dispatcher.Deserialize<ReadMpStruct>(s_mpBytes)));
         Assert.Equal(
-            AllocatedPerCall(() => _ = (ReadMsgpStruct)dispatcher.Deserialize(s_msgpBytes, typeof(ReadMsgpStruct))!) - Box,
-            AllocatedPerCall(() => _ = dispatcher.Deserialize<ReadMsgpStruct>(s_msgpBytes)));
+            AllocationGate.MeasureBytesPerCall(Iterations, () => _ = (ReadMsgpStruct)dispatcher.Deserialize(s_msgpBytes, typeof(ReadMsgpStruct))!) - Box,
+            AllocationGate.MeasureBytesPerCall(Iterations, () => _ = dispatcher.Deserialize<ReadMsgpStruct>(s_msgpBytes)));
     }
 
     // ── Values ───────────────────────────────────────────────────────────────

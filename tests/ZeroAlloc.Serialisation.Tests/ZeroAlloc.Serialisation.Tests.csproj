@@ -19,6 +19,7 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="MemoryPack" />
     <PackageReference Include="MessagePack" />
+    <PackageReference Include="ZeroAlloc.TestHelpers" PrivateAssets="all" IncludeAssets="contentfiles;build" />
     <ProjectReference Include="../../src/ZeroAlloc.Serialisation/ZeroAlloc.Serialisation.csproj" />
     <ProjectReference Include="../../src/ZeroAlloc.Serialisation.MemoryPack/ZeroAlloc.Serialisation.MemoryPack.csproj" />
     <ProjectReference Include="../../src/ZeroAlloc.Serialisation.MessagePack/ZeroAlloc.Serialisation.MessagePack.csproj" />
