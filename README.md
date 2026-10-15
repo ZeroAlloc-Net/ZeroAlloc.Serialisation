@@ -115,27 +115,27 @@ See [Deserializing to a known type](docs/dependency-injection.md#deserializing-t
 
 ## Performance
 
-ZA.Serialisation is an abstraction layer — not a competing serializer. The honest comparison is whether the wrapper adds measurable overhead vs calling the raw library directly. .NET 10.0.7, BenchmarkDotNet v0.14.0.
+ZA.Serialisation is an abstraction layer — not a competing serializer. The honest comparison is whether the wrapper adds measurable overhead vs calling the raw library directly. .NET 10, BenchmarkDotNet v0.15.8, ShortRun; both sides of each pair write into the same reused `IBufferWriter<byte>`.
 
-**Deserialize (wrapper is thin):**
+**Deserialize:**
 
-| Library | Raw | ZA wrapper | Overhead |
+| Library | Raw | ZA wrapper | Extra allocation |
 |---|---:|---:|---:|
-| MemoryPack | 48 ns / 64 B | 55 ns / 64 B | +16%, 0 B |
-| MessagePack | 124 ns / 64 B | 183 ns / 96 B | +47%, +32 B |
-| System.Text.Json | 303 ns / 64 B | 375 ns / 64 B | +23%, 0 B |
+| MemoryPack | 53.5 ns / 64 B | 87.0 ns / 64 B | **0 B** |
+| MessagePack | 156.5 ns / 64 B | 204.4 ns / 64 B | **0 B** |
+| System.Text.Json | 395.4 ns / 64 B | 270.6 ns / 64 B | **0 B** |
 
-**Serialize (IBufferWriter pattern adds measurable cost):**
+**Serialize:**
 
-| Library | Raw | ZA wrapper | Overhead |
+| Library | Raw | ZA wrapper | Extra allocation |
 |---|---:|---:|---:|
-| MemoryPack | 75 ns / 48 B | 160 ns / 312 B | +114%, +264 B |
-| MessagePack | 128 ns / 32 B | 215 ns / 312 B | +68%, +280 B |
-| System.Text.Json | 226 ns / 48 B | 288 ns / 448 B | +27%, +400 B |
+| MemoryPack | 53.6 ns / 0 B | 51.2 ns / 0 B | **0 B** |
+| MessagePack | 56.1 ns / 0 B | 74.0 ns / 0 B | **0 B** |
+| System.Text.Json | 93.1 ns / 0 B | 134.0 ns / 0 B | **0 B** |
 
-The serialize wrapper costs more because `ISerializer<T>.Serialize` takes an `IBufferWriter<byte>` — the buffer abstraction. The 264–400 B is the `ArrayBufferWriter<byte>` allocated fresh per call by the benchmark. **The wrapper is fastest when the caller pools the buffer writer**; a real application that pools writers amortises the overhead to ~0 per call.
+The 64 B on deserialize is the deserialized object itself; the wrapper adds no allocation on either path. The timings come from a short run on a shared machine and vary by tens of nanoseconds between runs, so read them as an order of magnitude; the allocation column is exact. If you would otherwise create a fresh `ArrayBufferWriter<byte>` per call, a raw API that returns a `byte[]` allocates less — pool or reuse the writer.
 
-Full methodology and guidance on when to use the wrapper vs raw libraries: [docs/performance.md](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/blob/main/docs/performance.md).
+Full methodology, the generated-serializer and dispatcher allocation profile, and guidance on when to use the wrapper vs raw libraries: [docs/performance.md](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/blob/main/docs/performance.md).
 
 ## AOT Safety
 
