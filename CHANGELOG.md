@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.8.1...v2.8.2) (2026-10-15)
+
+
+### Documentation
+
+* sync serialisation readme benchmarks with docs/performance.md ([#215](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/215)) ([e1d6d8a](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/e1d6d8a5c2987aa56a531af1cb4a8355d0bd39dc))
+
+
+### Tests
+
+* move hand-rolled GC allocation checks onto AllocationGate ([#217](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/217)) ([e2acb1e](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/e2acb1ee6defc58ec3d043dce84f566381b4b7ea)), closes [#214](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/214)
+
 ## [2.8.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.8.0...v2.8.1) (2026-10-11)
 
 
