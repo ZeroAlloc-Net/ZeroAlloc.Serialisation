@@ -6,6 +6,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using MessagePack;
 using Xunit;
+using ZeroAlloc.TestHelpers;
 using ZeroAlloc.Serialisation.MessagePack;
 using ZeroAlloc.Serialisation.SystemTextJson;
 
@@ -110,15 +111,6 @@ public class HotPathAllocationTests
 {
     private const int Iterations = 200;
 
-    /// <summary>Bytes allocated on this thread per call of <paramref name="action"/>, after warm-up.</summary>
-    private static long AllocatedPerCall(Action action)
-    {
-        for (var i = 0; i < 20; i++) action();
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < Iterations; i++) action();
-        return (GC.GetAllocatedBytesForCurrentThread() - before) / Iterations;
-    }
-
     private static StjOrder SampleStjOrder() => new()
     {
         Id = "ord-1",
@@ -135,13 +127,11 @@ public class HotPathAllocationTests
         var buffer = new ArrayBufferWriter<byte>(1024);
         var order = SampleStjOrder();
 
-        var bytes = AllocatedPerCall(() =>
+        AllocationGate.AssertBudget(0, Iterations, () =>
         {
             buffer.ResetWrittenCount();
             serializer.Serialize(buffer, order);
-        });
-
-        Assert.Equal(0, bytes);
+        }, "Stj_Adapter_Serialize_AllocatesNothing");
     }
 
     [Fact]
@@ -151,13 +141,11 @@ public class HotPathAllocationTests
         var buffer = new ArrayBufferWriter<byte>(1024);
         var order = SampleStjOrder();
 
-        var bytes = AllocatedPerCall(() =>
+        AllocationGate.AssertBudget(0, Iterations, () =>
         {
             buffer.ResetWrittenCount();
             serializer.Serialize(buffer, order);
-        });
-
-        Assert.Equal(0, bytes);
+        }, "Stj_Generated_Serialize_AllocatesNothing");
     }
 
     [Fact]
@@ -265,7 +253,7 @@ public class HotPathAllocationTests
     private static readonly MsgpOrder s_msgpOrder = new() { Id = "ord-1", Total = 12.5m, Tags = ["a", "b"] };
 
     private static long RawMessagePackDeserializeBytes(ReadOnlyMemory<byte> payload, MessagePackSerializerOptions? options)
-        => AllocatedPerCall(() => global::MessagePack.MessagePackSerializer.Deserialize<MsgpOrder>(payload, options));
+        => AllocationGate.MeasureBytesPerCall(Iterations, () => global::MessagePack.MessagePackSerializer.Deserialize<MsgpOrder>(payload, options));
 
     [Fact]
     public void MessagePack_Adapter_Deserialize_AllocatesOnlyWhatMessagePackItselfDoes()
@@ -274,7 +262,7 @@ public class HotPathAllocationTests
         var payload = global::MessagePack.MessagePackSerializer.Serialize(s_msgpOrder, MessagePackSerializerOptions.Standard);
 
         var raw = RawMessagePackDeserializeBytes(payload, MessagePackSerializerOptions.Standard);
-        var wrapped = AllocatedPerCall(() => serializer.Deserialize(payload));
+        var wrapped = AllocationGate.MeasureBytesPerCall(Iterations, () => serializer.Deserialize(payload));
 
         Assert.Equal(raw, wrapped);
     }
@@ -286,7 +274,7 @@ public class HotPathAllocationTests
         var payload = global::MessagePack.MessagePackSerializer.Serialize(s_msgpOrder);
 
         var raw = RawMessagePackDeserializeBytes(payload, options: null);
-        var wrapped = AllocatedPerCall(() => serializer.Deserialize(payload));
+        var wrapped = AllocationGate.MeasureBytesPerCall(Iterations, () => serializer.Deserialize(payload));
 
         Assert.Equal(raw, wrapped);
     }
@@ -315,7 +303,7 @@ public class HotPathAllocationTests
         ReadOnlyMemory<byte> payload = global::MessagePack.MessagePackSerializer.Serialize(s_msgpOrder);
 
         var raw = RawMessagePackDeserializeBytes(payload, options: null);
-        var dispatched = AllocatedPerCall(() => dispatcher.Deserialize(payload, typeof(MsgpOrder)));
+        var dispatched = AllocationGate.MeasureBytesPerCall(Iterations, () => dispatcher.Deserialize(payload, typeof(MsgpOrder)));
 
         Assert.Equal(raw, dispatched);
     }
@@ -340,8 +328,8 @@ public class HotPathAllocationTests
         var dispatcher = new SerializerDispatcher();
         ReadOnlyMemory<byte> payload = JsonSerializer.SerializeToUtf8Bytes(SampleStjOrder(), StjOrderContext.Default.StjOrder);
 
-        var raw = AllocatedPerCall(() => JsonSerializer.Deserialize(payload.Span, StjOrderContext.Default.StjOrder));
-        var dispatched = AllocatedPerCall(() => dispatcher.Deserialize(payload, typeof(StjOrder)));
+        var raw = AllocationGate.MeasureBytesPerCall(Iterations, () => JsonSerializer.Deserialize(payload.Span, StjOrderContext.Default.StjOrder));
+        var dispatched = AllocationGate.MeasureBytesPerCall(Iterations, () => dispatcher.Deserialize(payload, typeof(StjOrder)));
 
         Assert.Equal(raw, dispatched);
     }
@@ -354,13 +342,13 @@ public class HotPathAllocationTests
 
         // The dispatcher returns memory the caller owns, so the one ArrayBufferWriter and its
         // array are the contract. Everything else, serializer and Utf8JsonWriter, must be reused.
-        var expected = AllocatedPerCall(() =>
+        var expected = AllocationGate.MeasureBytesPerCall(Iterations, () =>
         {
             var w = new ArrayBufferWriter<byte>();
             w.GetSpan(1);
             w.Advance(0);
         });
-        var dispatched = AllocatedPerCall(() => dispatcher.Serialize(order, typeof(StjOrder)));
+        var dispatched = AllocationGate.MeasureBytesPerCall(Iterations, () => dispatcher.Serialize(order, typeof(StjOrder)));
 
         Assert.Equal(expected, dispatched);
     }
@@ -441,30 +429,20 @@ public class ValueObjectTimeSpanSystemTextJsonTests
         using var writer = new Utf8JsonWriter(buffer);
         var payload = Encoding.UTF8.GetBytes("\"10.02:03:04.5670000\"");
 
-        static long PerCall(Action action)
-        {
-            for (var i = 0; i < 20; i++) action();
-            var before = GC.GetAllocatedBytesForCurrentThread();
-            for (var i = 0; i < 200; i++) action();
-            return (GC.GetAllocatedBytesForCurrentThread() - before) / 200;
-        }
-
-        var written = PerCall(() =>
+        AllocationGate.AssertBudget(0, 200, () =>
         {
             buffer.ResetWrittenCount();
             writer.Reset(buffer);
             converter.Write(writer, value, options);
             writer.Flush();
-        });
-        var read = PerCall(() =>
+        }, "ShiftLength converter Write");
+        AllocationGate.AssertBudget(0, 200, () =>
         {
             var reader = new Utf8JsonReader(payload);
             reader.Read();
             _ = converter.Read(ref reader, typeof(ShiftLength), options);
-        });
+        }, "ShiftLength converter Read");
 
         Assert.Equal("\"10.02:03:04.5670000\"", Encoding.UTF8.GetString(buffer.WrittenSpan));
-        Assert.Equal(0, written);
-        Assert.Equal(0, read);
     }
 }

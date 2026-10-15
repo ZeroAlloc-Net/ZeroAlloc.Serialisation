@@ -2,6 +2,7 @@ using Microsoft.Extensions.DependencyInjection;
 using System.Text.Json;
 using Xunit;
 using ZeroAlloc.Serialisation;
+using ZeroAlloc.TestHelpers;
 
 namespace ZeroAlloc.Serialisation.Tests;
 
@@ -197,12 +198,11 @@ public sealed class SystemTextJsonFallbackDispatcherTests
         var value = new DispatchStjStruct(7, "seven");
         var writer = new System.Buffers.ArrayBufferWriter<byte>(1024);
 
-        for (var i = 0; i < 20; i++) { writer.ResetWrittenCount(); sut.Serialize(writer, value); }
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 200; i++) { writer.ResetWrittenCount(); sut.Serialize(writer, value); }
-        var perCall = (GC.GetAllocatedBytesForCurrentThread() - before) / 200;
-
-        Assert.Equal(0, perCall);
+        AllocationGate.AssertBudget(0, 200, () =>
+        {
+            writer.ResetWrittenCount();
+            sut.Serialize(writer, value);
+        }, "SystemTextJsonFallbackDispatcher.Serialize<T> into a reused writer");
     }
 
     // ── Generic Deserialize<T> ────────────────────────────────────────────────
@@ -247,12 +247,9 @@ public sealed class SystemTextJsonFallbackDispatcherTests
         var data = sut.Serialize(value, typeof(ReadMpStruct));
         ReadMpStruct back = default;
 
-        for (var i = 0; i < 20; i++) back = sut.Deserialize<ReadMpStruct>(data);
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < 200; i++) back = sut.Deserialize<ReadMpStruct>(data);
-        var perCall = (GC.GetAllocatedBytesForCurrentThread() - before) / 200;
+        AllocationGate.AssertBudget(
+            0, 200, () => back = sut.Deserialize<ReadMpStruct>(data), "SystemTextJsonFallbackDispatcher.Deserialize<T>");
 
-        Assert.Equal(0, perCall);
         Assert.Equal(value, back);
     }
 

@@ -3,6 +3,7 @@ using System.Text.Json.Serialization;
 using MemoryPack;
 using MessagePack;
 using Xunit;
+using ZeroAlloc.TestHelpers;
 
 namespace ZeroAlloc.Serialisation.Tests;
 
@@ -26,15 +27,6 @@ public readonly record struct DispatchMsgpStruct([property: Key(0)] int A, [prop
 public class DispatcherBufferWriterTests
 {
     private const int Iterations = 200;
-
-    /// <summary>Bytes allocated on this thread per call of <paramref name="action"/>, after warm-up.</summary>
-    private static long AllocatedPerCall(Action action)
-    {
-        for (var i = 0; i < 20; i++) action();
-        var before = GC.GetAllocatedBytesForCurrentThread();
-        for (var i = 0; i < Iterations; i++) action();
-        return (GC.GetAllocatedBytesForCurrentThread() - before) / Iterations;
-    }
 
     private static readonly DispatchStjStruct s_stj = new(7, "seven");
     private static readonly DispatchMpStruct s_mp = new(8, "eight");
@@ -62,13 +54,11 @@ public class DispatcherBufferWriterTests
         ISerializerDispatcher dispatcher = new SerializerDispatcher();
         var buffer = new ArrayBufferWriter<byte>(1024);
 
-        var bytes = AllocatedPerCall(() =>
+        AllocationGate.AssertBudget(0, Iterations, () =>
         {
             buffer.ResetWrittenCount();
             dispatcher.Serialize(buffer, s_stj);
-        });
-
-        Assert.Equal(0, bytes);
+        }, "Generic_Struct_SystemTextJson_IntoReusedWriter_AllocatesNothing");
     }
 
     [Fact]
@@ -77,13 +67,11 @@ public class DispatcherBufferWriterTests
         ISerializerDispatcher dispatcher = new SerializerDispatcher();
         var buffer = new ArrayBufferWriter<byte>(1024);
 
-        var bytes = AllocatedPerCall(() =>
+        AllocationGate.AssertBudget(0, Iterations, () =>
         {
             buffer.ResetWrittenCount();
             dispatcher.Serialize(buffer, s_mp);
-        });
-
-        Assert.Equal(0, bytes);
+        }, "Generic_Struct_MemoryPack_IntoReusedWriter_AllocatesNothing");
     }
 
     [Fact]
@@ -92,13 +80,11 @@ public class DispatcherBufferWriterTests
         ISerializerDispatcher dispatcher = new SerializerDispatcher();
         var buffer = new ArrayBufferWriter<byte>(1024);
 
-        var bytes = AllocatedPerCall(() =>
+        AllocationGate.AssertBudget(0, Iterations, () =>
         {
             buffer.ResetWrittenCount();
             dispatcher.Serialize(buffer, s_msgp);
-        });
-
-        Assert.Equal(0, bytes);
+        }, "Generic_Struct_MessagePack_IntoReusedWriter_AllocatesNothing");
     }
 
     [Fact]
@@ -108,13 +94,11 @@ public class DispatcherBufferWriterTests
         var buffer = new ArrayBufferWriter<byte>(1024);
         var order = SampleStjOrder();
 
-        var bytes = AllocatedPerCall(() =>
+        AllocationGate.AssertBudget(0, Iterations, () =>
         {
             buffer.ResetWrittenCount();
             dispatcher.Serialize(buffer, order);
-        });
-
-        Assert.Equal(0, bytes);
+        }, "Generic_Class_IntoReusedWriter_AllocatesNothing");
     }
 
     [Fact]
@@ -190,13 +174,11 @@ public class DispatcherBufferWriterTests
         var buffer = new ArrayBufferWriter<byte>(1024);
         object order = SampleStjOrder();
 
-        var bytes = AllocatedPerCall(() =>
+        AllocationGate.AssertBudget(0, Iterations, () =>
         {
             buffer.ResetWrittenCount();
             dispatcher.Serialize(buffer, order, typeof(StjOrder));
-        });
-
-        Assert.Equal(0, bytes);
+        }, "ByType_IntoReusedWriter_AllocatesNothing");
     }
 
     [Fact]
