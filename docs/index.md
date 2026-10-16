@@ -47,13 +47,15 @@ Given `[ZeroAllocSerializable(SerializationFormat.MemoryPack)]` on a type, the g
 - `AddOrderPlacedEventSerializer()` DI extension — `TryAddSingleton` registration
 - `SerializerDispatcher` — single dispatcher covering all annotated types in the assembly
 
-## Backends
+## Packages
 
-| Package | Format |
-|---|---|
-| `ZeroAlloc.Serialisation.MemoryPack` | MemoryPack (fastest binary) |
-| `ZeroAlloc.Serialisation.MessagePack` | MessagePack |
-| `ZeroAlloc.Serialisation.SystemTextJson` | System.Text.Json (AOT-safe via `JsonSerializerContext`) |
+| Package | Contents | Target frameworks |
+|---|---|---|
+| `ZeroAlloc.Serialisation` | `ISerializer<T>`, `ISerializerDispatcher`, `ZeroAllocSerializableAttribute`, and the bundled source generator | netstandard2.1, net8.0, net9.0, net10.0 |
+| `ZeroAlloc.Serialisation.MemoryPack` | MemoryPack backend, the fastest binary format | net8.0, net9.0, net10.0 |
+| `ZeroAlloc.Serialisation.MessagePack` | MessagePack backend | net8.0, net9.0, net10.0 |
+| `ZeroAlloc.Serialisation.SystemTextJson` | System.Text.Json backend, AOT-safe through `JsonSerializerContext` | net8.0, net9.0, net10.0 |
+| `ZeroAlloc.Serialisation.Generator` | Legacy standalone generator, already bundled inside `ZeroAlloc.Serialisation`. Referencing both loads it twice; see [Migrating 1.x → 2.x](migration-1x-to-2x) | netstandard2.0 |
 
 ## Documentation
 
