@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.8.2...v2.8.3) (2026-10-16)
+
+
+### Documentation
+
+* rewrite the readme as a product page ([#221](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/221)) ([b878779](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/b8787793bd9783b7b2f29066808b3ec8a992d18d))
+
 ## [2.8.2](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.8.1...v2.8.2) (2026-10-15)
 
 
