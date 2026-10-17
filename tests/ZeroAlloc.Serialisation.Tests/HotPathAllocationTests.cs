@@ -111,6 +111,11 @@ public class HotPathAllocationTests
 {
     private const int Iterations = 200;
 
+    // Where a baseline's allocation escapes to. The gate measures optimised code, and since
+    // .NET 10 the JIT puts an object that never leaves the method on the stack, so a discarded
+    // writer would read 0 B where the dispatcher's returned one cannot.
+    private static object? s_sink;
+
     private static StjOrder SampleStjOrder() => new()
     {
         Id = "ord-1",
@@ -347,6 +352,7 @@ public class HotPathAllocationTests
             var w = new ArrayBufferWriter<byte>();
             w.GetSpan(1);
             w.Advance(0);
+            s_sink = w;
         });
         var dispatched = AllocationGate.MeasureBytesPerCall(Iterations, () => dispatcher.Serialize(order, typeof(StjOrder)));
 
