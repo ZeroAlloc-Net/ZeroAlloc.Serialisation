@@ -103,8 +103,10 @@ public class DispatcherGenericDeserializeTests
         var backend = AllocationGate.MeasureBytesPerCall(Iterations, () => result = serializer.Deserialize(s_stjBytes.Span));
         var bytes = AllocationGate.MeasureBytesPerCall(Iterations, () => result = dispatcher.Deserialize<ReadStjStruct>(s_stjBytes));
 
+        // 136 B in the optimised code. Unoptimised tier-0 code boxes 32 B more, which the
+        // allocation gate measured before ZeroAlloc.TestHelpers 1.8.0.
         Assert.Equal(backend, bytes);
-        Assert.Equal(168, bytes);
+        Assert.Equal(136, bytes);
         Assert.Equal(s_stj, result);
     }
 
