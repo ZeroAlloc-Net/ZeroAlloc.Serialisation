@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.8.4](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.8.3...v2.8.4) (2026-10-18)
+
+
+### Tests
+
+* measure serialisation allocation gates in steady state ([#231](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/231)) ([379a3dc](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/379a3dcaec020fbbe4e11b10d18390b75eb4ddb1))
+
 ## [2.8.3](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.8.2...v2.8.3) (2026-10-16)
 
 
