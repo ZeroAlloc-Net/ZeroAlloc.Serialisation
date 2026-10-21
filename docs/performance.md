@@ -15,36 +15,40 @@ The honest comparison is therefore: **does the wrapper add measurable overhead v
 ## Methodology
 
 - **Source**: `tests/ZeroAlloc.Serialisation.Benchmarks/RawVsWrappedBenchmark.cs`
-- **BDN**: v0.15.8 with `[MemoryDiagnoser]`, ShortRun job
-- **Runtime**: .NET 10, X64 RyuJIT AVX2
+- **BDN**: v0.15.8 with `[MemoryDiagnoser]`, out of process, three launches per benchmark, pinned to two performance cores
+- **Runtime**: .NET 10.0.13, X64 RyuJIT x86-64-v3, Windows 11 on an otherwise idle i9-12900HK, measured 2026-10-21
 - **Payload**: `BenchDto { Id = 42, Name = "Alice" }` — a small object so wrapper overhead is the dominant cost (not payload work).
 
 Each scenario runs the raw library API and the ZA wrapper through the same call. The bytes produced are byte-identical across the pair (the wrapper delegates to the underlying library). Both sides of a Serialize pair write into the same reused `IBufferWriter<byte>`, so the allocation column shows what the wrapper itself allocates, not the caller's buffer.
 
-The allocation column is exact and repeatable. The timings come from a short run on a shared machine and vary by tens of nanoseconds between runs; read them as an order of magnitude.
+> Allocations are exact. Speed is shown as same-run ratios; absolute timings are not published.
+
+`Wrapper time` is the ZA wrapper's mean time divided by the raw library's for the same call in the same run, with the lowest and highest of the three launches in brackets.
 
 ## Head-to-head vs raw libraries
 
 <!-- BENCH:START -->
-_Last refreshed: 2026-10-11_
+_Last refreshed: 2026-10-21_
 
 ### Deserialize
 
-| Library | Raw | ZA wrapper | Extra allocation |
-|---|---:|---:|---:|
-| MemoryPack | 53.5 ns / 64 B | 87.0 ns / 64 B | **0 B** |
-| MessagePack | 156.5 ns / 64 B | 204.4 ns / 64 B | **0 B** |
-| System.Text.Json | 395.4 ns / 64 B | 270.6 ns / 64 B | **0 B** |
+| Library | Wrapper time | Raw allocation | Wrapper allocation | Extra allocation |
+|---|---:|---:|---:|---:|
+| MemoryPack | 2.23× (2.11–2.40) | 64 B | 64 B | **0 B** |
+| MessagePack | 1.27× (1.25–1.29) | 64 B | 64 B | **0 B** |
+| System.Text.Json | 0.99× (0.97–1.02) | 64 B | 64 B | **0 B** |
 
 The 64 B is the deserialized object itself. MessagePack has no span overload, so the wrapper copies the span into a pooled array before handing it over; the copy allocates nothing. See [the MessagePack backend](backends/messagepack.md#deserializing-from-a-span).
 
 ### Serialize
 
-| Library | Raw | ZA wrapper | Extra allocation |
-|---|---:|---:|---:|
-| MemoryPack | 53.6 ns / 0 B | 51.2 ns / 0 B | **0 B** |
-| MessagePack | 56.1 ns / 0 B | 74.0 ns / 0 B | **0 B** |
-| System.Text.Json | 93.1 ns / 0 B | 134.0 ns / 0 B | **0 B** |
+| Library | Wrapper time | Raw allocation | Wrapper allocation | Extra allocation |
+|---|---:|---:|---:|---:|
+| MemoryPack | 1.21× (1.04–1.27) | 0 B | 0 B | **0 B** |
+| MessagePack | 1.25× (1.24–1.27) | 0 B | 0 B | **0 B** |
+| System.Text.Json | 1.23× (1.22–1.23) | 0 B | 0 B | **0 B** |
+
+The wrapper's cost is a small fixed amount per call, so it shows most against the fastest library: MemoryPack deserializes this payload in so little time that the wrapper more than doubles it, while against System.Text.Json it is within the launch spread.
 
 The raw System.Text.Json row reuses one `Utf8JsonWriter`, as a caller writing to an `IBufferWriter<byte>` would. The wrapper does the same with one writer per thread; until #198 it created a writer per call, 136 B.
 
@@ -78,6 +82,7 @@ The dispatcher's `Serialize(object, Type)` returns memory the caller owns, so th
 ## When to call the raw library directly
 
 - **Hot path with no pool** — the wrapper writes to an `IBufferWriter<byte>` you supply. If you would otherwise create a fresh `ArrayBufferWriter<byte>` per call, about 264 B and up, a raw API that returns a `byte[]`, such as `MemoryPackSerializer.Serialize(dto)`, allocates less.
+- **MemoryPack deserialization on the hottest path** — MemoryPack reads a small object so quickly that the wrapper's per-call cost more than doubles it (2.23× above). Against MessagePack and System.Text.Json the same cost is 0–27%.
 - **Single-format apps** — if you'll never switch from MemoryPack, the abstraction adds friction without value.
 - **Streaming scenarios** — the raw library's stream-based APIs may be more ergonomic than wrapping `IBufferWriter` around a `MemoryStream`.
 
@@ -85,5 +90,5 @@ The dispatcher's `Serialize(object, Type)` returns memory the caller owns, so th
 
 ```bash
 cd tests/ZeroAlloc.Serialisation.Benchmarks
-dotnet run -c Release -- --filter "*RawVsWrappedBenchmark*"
+dotnet run -c Release -- --filter "*RawVsWrappedBenchmark*" --launchCount 3
 ```

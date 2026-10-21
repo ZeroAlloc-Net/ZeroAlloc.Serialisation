@@ -67,11 +67,11 @@ Serialize into a reused `IBufferWriter<byte>`, .NET 10, BenchmarkDotNet, raw lib
 
 | Backend | Raw library | ZeroAlloc wrapper | Wrapper time vs raw |
 |---|---:|---:|---:|
-| MemoryPack | 0 B | 0 B | 0.96× |
-| MessagePack | 0 B | 0 B | 1.32× |
-| System.Text.Json | 0 B | 0 B | 1.44× |
+| MemoryPack | 0 B | 0 B | 1.21× |
+| MessagePack | 0 B | 0 B | 1.25× |
+| System.Text.Json | 0 B | 0 B | 1.23× |
 
-Allocations are exact. The timings come from a short run and vary by tens of nanoseconds between runs. The [performance page](docs/performance.md) has the deserialize numbers, the generated dispatcher's allocation profile, and when to call the raw library instead.
+Allocations are exact; the time is a same-run ratio from three launches. The [performance page](docs/performance.md) has the deserialize numbers, the generated dispatcher's allocation profile, and when to call the raw library instead.
 
 ## Learn more
 
