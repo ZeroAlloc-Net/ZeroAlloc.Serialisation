@@ -127,6 +127,20 @@ internal static class ValueObjectEmitter
 
         var (readMember, writeMember) = string.Equals(model.UnderlyingTypeDisplayName, "System.TimeSpan", StringComparison.Ordinal)
             ? TimeSpanConverterMembers(model)
+            : HasFactory(model)
+            ? (MemberLines(
+                   new[]
+                   {
+                       $"public override {typeName} Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)",
+                       "{",
+                       $"    var underlying = {readMethod};",
+                   }
+                   .Concat(FactoryStatements(model, "JsonException", "underlying", "return {0};").Select(l => "    " + l))
+                   .Concat(new[] { "}" })
+                   .ToArray()),
+               MemberLines(
+                   $"public override void Write(Utf8JsonWriter writer, {typeName} value, JsonSerializerOptions options)",
+                   $"    => writer.{writeMethod}(value.{model.UnderlyingPropertyName});"))
             : (MemberLines(
                    $"public override {typeName} Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)",
                    $"    => new {typeName}({readMethod});"),
@@ -296,6 +310,7 @@ internal static class ValueObjectEmitter
 
         // MessagePack's own reference-type formatters implement IMessagePackFormatter<T?>,
         // since null is a value they write and read.
+        var mpRead = HasFactory(model) ? MessagePackFactoryRead(model, readMethod) : "";
         var formatter = model.IsValueType
             ? $$"""
                 {{SiblingAccessibility(model)}} sealed class {{formatterName}} : IMessagePackFormatter<{{typeName}}>
@@ -304,7 +319,7 @@ internal static class ValueObjectEmitter
                         => {{writeStatement}};
 
                     public {{typeName}} Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
-                        => new {{typeName}}({{readMethod}});
+                        {{(HasFactory(model) ? mpRead : $"=> new {typeName}({readMethod});")}}
                 }
 
                 """
@@ -323,7 +338,7 @@ internal static class ValueObjectEmitter
                     }
 
                     public {{typeName}}? Deserialize(ref MessagePackReader reader, MessagePackSerializerOptions options)
-                        => reader.TryReadNil() ? null : new {{typeName}}({{readMethod}});
+                        {{(HasFactory(model) ? mpRead : $"=> reader.TryReadNil() ? null : new {typeName}({readMethod});")}}
                 }
 
                 """;
@@ -476,7 +491,7 @@ internal static class ValueObjectEmitter
                         => writer.WriteValue<{{underlyingFqn}}>(value.{{model.UnderlyingPropertyName}});
 
                     public override void Deserialize(ref MemoryPackReader reader, scoped ref {{typeName}} value)
-                        => value = new {{typeName}}(reader.ReadValue<{{underlyingFqn}}>()!);
+                        {{(HasFactory(model) ? MemoryPackFactoryRead(model, underlyingFqn, "                        ") : $"=> value = new {typeName}(reader.ReadValue<{underlyingFqn}>()!);")}}
                 }
 
                 """
@@ -508,7 +523,7 @@ internal static class ValueObjectEmitter
                             MemoryPackSerializationException.ThrowInvalidPropertyCount(1, memberCount);
                         }
 
-                        value = new {{typeName}}(reader.ReadValue<{{underlyingFqn}}>()!);
+                        {{(HasFactory(model) ? MemoryPackFactoryRead(model, underlyingFqn, "                        ", block: false) : $"value = new {typeName}(reader.ReadValue<{underlyingFqn}>()!);")}}
                     }
                 }
 
@@ -589,7 +604,8 @@ internal static class ValueObjectEmitter
     private static (string Read, string Write) TimeSpanConverterMembers(ValueObjectModel model)
     {
         var typeName = model.TypeName;
-        var read = MemberLines(
+        var readHead = new[]
+        {
             $"public override {typeName} Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)",
             "{",
             "    if (reader.TokenType != JsonTokenType.String)",
@@ -611,9 +627,12 @@ internal static class ValueObjectEmitter
             "        || !global::System.Buffers.Text.Utf8Parser.TryParse(text, out global::System.TimeSpan value, out var consumed, 'c')",
             "        || consumed != text.Length)",
             "        throw new JsonException(\"The JSON string is not a TimeSpan in the constant (c) format.\");",
-            "",
-            $"    return new {typeName}(value);",
-            "}");
+            ""
+        };
+        var tail = HasFactory(model)
+            ? FactoryStatements(model, "JsonException", "value", "return {0};").Select(l => "    " + l)
+            : new[] { $"    return new {typeName}(value);" };
+        var read = MemberLines(readHead.Concat(tail).Concat(new[] { "}" }).ToArray());
         var write = MemberLines(
             $"public override void Write(Utf8JsonWriter writer, {typeName} value, JsonSerializerOptions options)",
             "{",
@@ -629,6 +648,84 @@ internal static class ValueObjectEmitter
     /// Joins the lines of a converter member declared at an indent of four spaces: every line after
     /// the first gets the four spaces, and blank lines stay empty.
     /// </summary>
+    /// <summary>
+    /// The statements that build the value object from <paramref name="underlying"/>, an expression
+    /// of the underlying type, through the type's own factory, ending in <paramref name="finish"/>
+    /// with <c>{0}</c> replaced by the built value. A rejected value throws
+    /// <paramref name="exceptionType"/>; a throwing <c>Create</c> is wrapped with the original as
+    /// inner exception. Only for a model with a factory: without one the reader calls the constructor.
+    /// </summary>
+    private static string[] FactoryStatements(
+        ValueObjectModel model,
+        string exceptionType,
+        string underlying,
+        string finish)
+    {
+        var typeName = model.TypeName;
+        var message = $"\"The value is not a valid {typeName}.\"";
+        if (model.Factory == ValueObjectFactoryKind.TryCreate)
+        {
+            return new[]
+            {
+                $"if (!{typeName}.{model.FactoryName}({underlying}, out var created))",
+                $"    throw new {exceptionType}({message});",
+                string.Format(System.Globalization.CultureInfo.InvariantCulture, finish, "created!"),
+            };
+        }
+
+        return new[]
+        {
+            "try",
+            "{",
+            "    " + string.Format(System.Globalization.CultureInfo.InvariantCulture, finish, $"{typeName}.{model.FactoryName}({underlying})"),
+            "}",
+            $"catch (global::System.Exception ex) when (ex is not {exceptionType})",
+            "{",
+            $"    throw new {exceptionType}({message}, ex);",
+            "}",
+        };
+    }
+
+    /// <summary>
+    /// A block body for the MessagePack formatter's <c>Deserialize</c> that reads the underlying
+    /// value and builds the value object through its factory. A reference type reads nil first.
+    /// </summary>
+    private static string MessagePackFactoryRead(ValueObjectModel model, string readMethod)
+    {
+        var lines = new System.Collections.Generic.List<string> { "{" };
+        if (!model.IsValueType)
+        {
+            lines.Add("    if (reader.TryReadNil())");
+            lines.Add("        return null;");
+            lines.Add("");
+        }
+        lines.Add($"    var underlying = {readMethod};");
+        lines.AddRange(FactoryStatements(model, "MessagePackSerializationException", "underlying", "return {0};")
+            .Select(l => "    " + l));
+        lines.Add("}");
+        return string.Join("\n        ", lines);
+    }
+
+    /// <summary>
+    /// The MemoryPack formatter's read of the underlying value and its build through the factory,
+    /// assigning <c>value</c>. A block when it replaces an expression body, bare statements when
+    /// it sits inside an existing body.
+    /// </summary>
+    private static string MemoryPackFactoryRead(ValueObjectModel model, string underlyingFqn, string indent, bool block = true)
+    {
+        var lines = new System.Collections.Generic.List<string>();
+        lines.Add($"var underlying = reader.ReadValue<{underlyingFqn}>()!;");
+        lines.AddRange(FactoryStatements(model, "MemoryPackSerializationException", "underlying", "value = {0};"));
+        if (!block) return string.Join("\n" + indent, lines);
+        return "{\n" + indent + "    " + string.Join("\n" + indent + "    ", lines) + "\n" + indent + "}";
+    }
+
+    private static bool HasFactory(ValueObjectModel model) => model.Factory != ValueObjectFactoryKind.None;
+
+    /// <summary>Indents <paramref name="lines"/> by <paramref name="indent"/> for a raw string template.</summary>
+    private static string Block(string[] lines, string indent) =>
+        string.Join("\n" + indent, lines);
+
     private static string MemberLines(params string[] lines) =>
         string.Join("\n", lines.Select((line, i) => i == 0 || line.Length == 0 ? line : "    " + line));
 

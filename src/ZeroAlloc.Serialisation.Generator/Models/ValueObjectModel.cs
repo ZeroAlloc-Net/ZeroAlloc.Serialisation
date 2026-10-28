@@ -34,6 +34,10 @@ namespace ZeroAlloc.Serialisation.Generator.Models;
 /// <param name="UnderlyingSpecialType">The property type's <see cref="SpecialType"/>.</param>
 /// <param name="UnderlyingTypeDisplayName">The property type in the default display format.</param>
 /// <param name="UnderlyingTypeFullyQualifiedName">The property type with a <c>global::</c> prefix.</param>
+/// <param name="Factory">
+/// How deserialization builds the value: through the type's own static factory, or the constructor.
+/// </param>
+/// <param name="FactoryName">The factory method's name, or empty when <paramref name="Factory"/> is none.</param>
 internal sealed record ValueObjectModel(
     string Namespace,
     EquatableArray<ContainingTypeModel> ContainingTypes,
@@ -46,7 +50,9 @@ internal sealed record ValueObjectModel(
     string UnderlyingPropertyName,
     SpecialType UnderlyingSpecialType,
     string UnderlyingTypeDisplayName,
-    string UnderlyingTypeFullyQualifiedName)
+    string UnderlyingTypeFullyQualifiedName,
+    ValueObjectFactoryKind Factory = ValueObjectFactoryKind.None,
+    string FactoryName = "")
 {
     /// <summary>Whether the type is nested in another type.</summary>
     public bool IsNested => !ContainingTypes.IsEmpty;
@@ -71,7 +77,11 @@ internal sealed record ValueObjectModel(
     /// <summary>
     /// Builds the model from the value-object type and its single public instance property.
     /// </summary>
-    public static ValueObjectModel From(INamedTypeSymbol type, IPropertySymbol underlying)
+    public static ValueObjectModel From(
+        INamedTypeSymbol type,
+        IPropertySymbol underlying,
+        ValueObjectFactoryKind factory = ValueObjectFactoryKind.None,
+        string factoryName = "")
     {
         var containing = new List<ContainingTypeModel>();
         var reachableFromNamespace = IsAccessibleFromAssembly(type.DeclaredAccessibility);
@@ -93,7 +103,9 @@ internal sealed record ValueObjectModel(
             UnderlyingPropertyName: underlying.Name,
             UnderlyingSpecialType: underlying.Type.SpecialType,
             UnderlyingTypeDisplayName: underlying.Type.ToDisplayString(),
-            UnderlyingTypeFullyQualifiedName: underlying.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat));
+            UnderlyingTypeFullyQualifiedName: underlying.Type.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat),
+            Factory: factory,
+            FactoryName: factoryName);
     }
 
     /// <summary>
@@ -124,6 +136,21 @@ internal sealed record ValueObjectModel(
         accessibility is Microsoft.CodeAnalysis.Accessibility.Public
             or Microsoft.CodeAnalysis.Accessibility.Internal
             or Microsoft.CodeAnalysis.Accessibility.ProtectedOrInternal;
+}
+
+/// <summary>
+/// The entry point a generated reader calls to build a value object from the value it read.
+/// </summary>
+internal enum ValueObjectFactoryKind
+{
+    /// <summary>No factory: the reader calls the constructor.</summary>
+    None,
+
+    /// <summary><c>static bool TryCreate(TUnderlying, out T)</c>; <c>false</c> rejects the value.</summary>
+    TryCreate,
+
+    /// <summary><c>static T Create(TUnderlying)</c>; throwing rejects the value.</summary>
+    Create,
 }
 
 /// <summary>
