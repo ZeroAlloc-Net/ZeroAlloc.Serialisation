@@ -33,3 +33,12 @@ ZASZ011 | ZeroAlloc.Serialisation | Error    | Closed generic type would get the
 Rule ID | Category                | Severity | Notes
 --------|-------------------------|----------|-----------------------------------------------------------------------------------
 ZASZ012 | ZeroAlloc.Serialisation | Error    | Invalid ZeroAllocGeneratedAccessibility value
+
+## Release 2.9.0
+
+### New Rules
+
+Rule ID | Category                | Severity | Notes
+--------|-------------------------|----------|-----------------------------------------------------------------------------------
+ZASZ013 | ZeroAlloc.Serialisation | Error    | [ValueObjectFactory] does not name a usable factory
+ZASZ014 | ZeroAlloc.Serialisation | Error    | [ValueObject] type has no way for a generated reader to construct it
