@@ -108,4 +108,22 @@ internal static class SerializerDiagnostics
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "ZeroAllocGeneratedAccessibility sets the accessibility of the generated SerializerDispatcher and of the generated registration extensions. Only Public, the default, and Internal are allowed, compared case-insensitively. Any other value is reported and treated as Public.");
+
+    public static readonly DiagnosticDescriptor ValueObjectFactoryInvalid = new(
+        id: "ZASZ013",
+        title: "[ValueObjectFactory] does not name a usable factory",
+        messageFormat: "[ValueObject] type '{0}' gets no generated serializers because [ValueObjectFactory] names '{1}', which is not an accessible static method of the shape 'bool {1}(TUnderlying, out T)' or 'T {1}(TUnderlying)'",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "[ValueObjectFactory(name)] names the static method the generated readers call to build the value object from the value they read. The method must be static, public, internal or protected internal, take the underlying value, and either return bool with a trailing out parameter of the value object type, or return the value object type. Without the attribute, a method called TryCreate or Create of that shape is used.");
+
+    public static readonly DiagnosticDescriptor ValueObjectConstructorInaccessible = new(
+        id: "ZASZ014",
+        title: "[ValueObject] type has no way for a generated reader to construct it",
+        messageFormat: "[ValueObject] type '{0}' gets no generated serializers because it has no accessible constructor taking '{1}' and no accessible static TryCreate or Create factory",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Error,
+        isEnabledByDefault: true,
+        description: "The generated readers run next to the value object, so they can call a public, internal or protected internal constructor taking the underlying value. Make the constructor internal, or declare a static bool TryCreate(TUnderlying, out T) or static T Create(TUnderlying) that is at least internal, or name one with [ValueObjectFactory]. A factory is also the way to validate wire values.");
 }

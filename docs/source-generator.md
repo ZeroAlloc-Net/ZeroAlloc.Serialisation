@@ -233,6 +233,8 @@ internal partial class AppJsonContext : JsonSerializerContext { }
 | `ZASZ010` | Error | `[ZeroAllocSerializable(typeof(...), format)]` is on a type declaration, or `[ZeroAllocSerializable(format)]` is on the assembly. |
 | `ZASZ011` | Error | A closed generic type would get the same generated names as another serializable type in the same namespace. |
 | `ZASZ012` | Error | The `ZeroAllocGeneratedAccessibility` MSBuild property is set to a value other than `Public` or `Internal`. See [Making the Generated Registration Internal](dependency-injection.md#making-the-generated-registration-internal). |
+| `ZASZ013` | Error | `[ValueObjectFactory]` names a method that is not an accessible static `TryCreate` or `Create` shape. |
+| `ZASZ014` | Error | A `[ValueObject]` type has no accessible constructor taking the underlying value and no accessible factory. |
 
 ### ZASZ005: `[ValueObject]` type cannot get generated serializers
 
@@ -246,6 +248,44 @@ Move the value object to the top level or into a non-generic type, make it non-f
 ### ZASZ006: MemoryPack formatter cannot be registered
 
 Reported on the value object's name when the compilation references `ZeroAlloc.Serialisation.MemoryPack` and a containing type is `private`, `protected` or `private protected`. MemoryPack formatters are registered from a `[ModuleInitializer]`, which must be accessible from the whole assembly, and inside such a type it cannot be. The System.Text.Json converter and the MessagePack formatter are still generated; only the MemoryPack formatter is skipped. Make the containing types `internal` or `public` to get it. A value object that is itself private inside a public or internal type is not affected.
+
+### ZASZ013: `[ValueObjectFactory]` does not name a usable factory
+
+Reported at the `[ValueObject]` attribute; nothing is generated for the type. `[ValueObjectFactory(nameof(Parse))]` names the static method the generated readers call. The named method must be static, `public`, `internal` or `protected internal`, take the underlying value as its first parameter, and have one of the two shapes described in [Validating on deserialization](#validating-on-deserialization). A missing method, a private or instance method, or a different signature is reported here.
+
+### ZASZ014: `[ValueObject]` type has no way to be constructed
+
+Reported at the `[ValueObject]` attribute; nothing is generated for the type. The generated readers sit next to the value object, so without a factory they need a `public`, `internal` or `protected internal` constructor taking the underlying value. A `private` or `protected` constructor used to surface as `CS0122` inside the generated file. Make the constructor `internal`, or declare a factory.
+
+## Validating on deserialization
+
+By default the generated readers build a `[ValueObject]` with `new T(value)`. A value object whose invariants live in a static factory would then accept any wire value, so the readers call the factory when there is one:
+
+| Shape | Rejected when |
+|---|---|
+| `static bool TryCreate(TUnderlying, out T)` | it returns `false` |
+| `static T Create(TUnderlying)` | it throws |
+
+```csharp
+[ValueObject]
+public readonly partial struct Sku
+{
+    public string Value { get; }
+    private Sku(string value) => Value = value;
+
+    public static bool TryCreate(string? input, out Sku sku) { /* validate */ }
+}
+```
+
+- **Convention.** A method called `TryCreate` of the first shape, else one called `Create` of the second, is used by all three backends. `TryCreate` wins when both exist.
+- **Explicit.** `[ValueObjectFactory(nameof(Parse))]`, from `ZeroAlloc.ValueObjects`, names the method instead and overrides the convention. The generator matches the attribute by its full name, so this package needs no newer ZeroAlloc.ValueObjects than the one that declares it. A method that does not fit either shape is [ZASZ013](#zasz013-valueobjectfactory-does-not-name-a-usable-factory).
+- **Constructor.** Only when no factory exists. If the constructor is `private` or `protected` as well, the type gets [ZASZ014](#zasz014-valueobject-type-has-no-way-to-be-constructed) and no serializers.
+
+The factory must be at least `internal`, since the readers are siblings of the type, and its first parameter must be the underlying type; nullable annotations do not matter.
+
+A rejected value throws `JsonException` from the System.Text.Json converter, `MessagePackSerializationException` from the MessagePack formatter and `MemoryPackSerializationException` from the MemoryPack formatter, so ASP.NET Core answers 400 instead of accepting the value. When `Create` throws, the exception is wrapped with the original as `InnerException`. Note that `MessagePackSerializer.Deserialize` wraps whatever a formatter throws once more, so the original may sit two levels down. The messages never contain the rejected value. MemoryPack serializes a struct that holds only unmanaged data, such as an `int`, `Guid` or `TimeSpan`, as raw memory and never calls a registered formatter, so a struct value object over such a type is not validated by the MemoryPack backend; class value objects and structs over `string` or `byte[]` are. The factory call allocates nothing beyond what the factory does, and uses no reflection.
+
+**Behaviour change.** An existing value object that already declares a conforming `TryCreate` or `Create` starts validating on deserialization, and values it rejects now throw where they used to deserialize.
 
 ## Release tracking
 

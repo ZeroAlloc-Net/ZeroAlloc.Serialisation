@@ -20,6 +20,12 @@ public sealed class ValueObjectDiagnosticTests
         {
             [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct)]
             public sealed class ValueObjectAttribute : System.Attribute { }
+
+            [System.AttributeUsage(System.AttributeTargets.Class | System.AttributeTargets.Struct)]
+            public sealed class ValueObjectFactoryAttribute : System.Attribute
+            {
+                public ValueObjectFactoryAttribute(string methodName) { }
+            }
         }
         """;
 
@@ -238,6 +244,172 @@ public sealed class ValueObjectDiagnosticTests
         var (output, _) = Run(declaration, memoryPack: true);
 
         Assert.DoesNotContain(output.GetDiagnostics(), static d => d.Id == "ZASZ005");
+    }
+
+    [Theory]
+    [InlineData("private")]
+    [InlineData("protected")]
+    [InlineData("private protected")]
+    public void InaccessibleConstructorWithoutAFactory_ReportsZASZ014_InsteadOfCS0122(string modifier)
+    {
+        var declaration = $$"""
+            [ValueObject]
+            public sealed partial class Id
+            {
+                public int Value { get; }
+                {{modifier}} Id(int value) => Value = value;
+            }
+            """;
+
+        var (output, result) = Run(declaration, memoryPack: true);
+
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal("ZASZ014", diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+        Assert.StartsWith("[ValueObject] type 'Demo.Id' gets no generated serializers because it has no accessible constructor taking 'int'", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.Equal("ValueObject", diagnostic.Location.SourceTree!.GetText().ToString(diagnostic.Location.SourceSpan));
+        Assert.DoesNotContain(HintNames(result), static n => n.StartsWith("Demo.Id", StringComparison.Ordinal));
+        AssertNoCompileErrors(output);
+        Assert.DoesNotContain(output.GetDiagnostics(), static d => d.Id == "CS0122");
+    }
+
+    [Fact]
+    public void StructWithNoConstructorTakingTheUnderlyingValue_ReportsZASZ014()
+    {
+        var declaration = """
+            [ValueObject]
+            public readonly partial struct Id
+            {
+                public int Value { get; init; }
+            }
+            """;
+
+        var (_, result) = Run(declaration, memoryPack: false);
+
+        Assert.Equal("ZASZ014", Assert.Single(result.Diagnostics).Id);
+    }
+
+    [Theory]
+    [InlineData("TryCreate", "public static bool TryCreate(int input, out Id id) { id = default; return false; }")]
+    [InlineData("Create", "public static Id Create(int input) => default;")]
+    [InlineData("Make", "public static bool Make(int input, out Id id) { id = default; return false; }")]
+    public void FactoryWithAPrivateConstructor_GeneratesEveryBackend_WithoutDiagnostics(string name, string factory)
+    {
+        var declaration = $$"""
+            [ValueObject]
+            [ValueObjectFactory(nameof({{name}}))]
+            public readonly partial struct Id
+            {
+                public int Value { get; }
+                private Id(int value) => Value = value;
+                {{factory}}
+            }
+            """;
+
+        var (output, result) = Run(declaration, memoryPack: true);
+
+        Assert.Empty(result.Diagnostics);
+        var hints = HintNames(result);
+        Assert.Contains("Demo.IdSystemTextJsonConverter.g.cs", hints, StringComparer.Ordinal);
+        Assert.Contains("Demo.IdMessagePackFormatter.g.cs", hints, StringComparer.Ordinal);
+        Assert.Contains("Demo.IdMemoryPackFormatter.g.cs", hints, StringComparer.Ordinal);
+        foreach (var source in result.GeneratedSources.Where(static s => s.HintName.StartsWith("Demo.Id", StringComparison.Ordinal)))
+        {
+            var text = source.SourceText.ToString();
+            Assert.DoesNotContain("new Id(", text, StringComparison.Ordinal);
+            Assert.Contains($"Id.{name}(", text, StringComparison.Ordinal);
+        }
+        AssertNoCompileErrors(output);
+    }
+
+    [Fact]
+    public void ConventionPrefersTryCreateOverCreate()
+    {
+        var declaration = """
+            [ValueObject]
+            public readonly partial struct Id
+            {
+                public int Value { get; }
+                private Id(int value) => Value = value;
+                public static Id Create(int input) => new Id(input);
+                public static bool TryCreate(int input, out Id id) { id = new Id(input); return true; }
+            }
+            """;
+
+        var (output, result) = Run(declaration, memoryPack: true);
+
+        Assert.Empty(result.Diagnostics);
+        var json = result.GeneratedSources.Single(static s => s.HintName == "Demo.IdSystemTextJsonConverter.g.cs").SourceText.ToString();
+        Assert.Contains("Id.TryCreate(", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("Id.Create(", json, StringComparison.Ordinal);
+        AssertNoCompileErrors(output);
+    }
+
+    [Theory]
+    [InlineData("Missing", "")]
+    [InlineData("Build", "private static bool Build(int input, out Id id) { id = default; return false; }")]
+    [InlineData("Build", "public bool Build(int input, out Id id) { id = default; return false; }")]
+    [InlineData("Build", "public static bool Build(long input, out Id id) { id = default; return false; }")]
+    [InlineData("Build", "public static int Build(int input) => input;")]
+    [InlineData("Build", "public static bool Build(int input) => true;")]
+    public void ExplicitFactoryThatIsNotUsable_ReportsZASZ013_AndEmitsNothing(string name, string factory)
+    {
+        var declaration = $$"""
+            [ValueObject]
+            [ValueObjectFactory("{{name}}")]
+            public readonly partial struct Id
+            {
+                public int Value { get; }
+                public Id(int value) => Value = value;
+                {{factory}}
+            }
+            """;
+
+        var (_, result) = Run(declaration, memoryPack: true);
+
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal("ZASZ013", diagnostic.Id);
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+        Assert.StartsWith($"[ValueObject] type 'Demo.Id' gets no generated serializers because [ValueObjectFactory] names '{name}'", diagnostic.GetMessage(), StringComparison.Ordinal);
+        Assert.DoesNotContain(HintNames(result), static n => n.StartsWith("Demo.Id", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public void ZASZ014_IsReportedEvenWhenAConventionalFactoryHasTheWrongShape()
+    {
+        var declaration = """
+            [ValueObject]
+            public readonly partial struct Id
+            {
+                public int Value { get; }
+                private Id(int value) => Value = value;
+                public static bool TryCreate(long input, out Id id) { id = default; return false; }
+            }
+            """;
+
+        var (_, result) = Run(declaration, memoryPack: false);
+
+        Assert.Equal("ZASZ014", Assert.Single(result.Diagnostics).Id);
+    }
+
+    [Fact]
+    public void PublicConstructorWithoutAFactory_StillGeneratesWithTheConstructor()
+    {
+        var declaration = """
+            [ValueObject]
+            public readonly partial struct Id
+            {
+                public int Value { get; }
+                public Id(int value) => Value = value;
+            }
+            """;
+
+        var (output, result) = Run(declaration, memoryPack: true);
+
+        Assert.Empty(result.Diagnostics);
+        var json = result.GeneratedSources.Single(static s => s.HintName == "Demo.IdSystemTextJsonConverter.g.cs").SourceText.ToString();
+        Assert.Contains("new Id(", json, StringComparison.Ordinal);
+        AssertNoCompileErrors(output);
     }
 
     private static List<string> HintNames(GeneratorRunResult result) =>

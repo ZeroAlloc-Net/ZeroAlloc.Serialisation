@@ -106,6 +106,8 @@ Same transparency holds across MessagePack and MemoryPack. Adopters who referenc
 
 For a class or record class, null round-trips in every backend: JSON `null`, MessagePack nil, and MemoryPack's null object header. A non-null class value object carries MemoryPack's one-member object header before the value, the layout MemoryPack itself writes for a `[MemoryPackable]` class with one member; struct value objects keep the bare value. A class value object used as a member of a `[MemoryPackable]` type needs `[MemoryPackAllowSerialize]` on that member, because MemoryPack's generator cannot see the formatter this generator registers.
 
+**Validating factories.** If the value object declares a static `TryCreate` or `Create`, or names one with `[ValueObjectFactory]`, every backend builds the value through it and a rejected wire value throws instead of being accepted; see [Validating on deserialization](source-generator.md#validating-on-deserialization).
+
 `AddZeroAllocValueObjectConverters` and `AddZeroAllocValueObjectFormatters`, below, live at namespace level, so they list only value objects that can be named there. A value object that is private or protected inside its containing type is served by the attribute on its partial declaration alone.
 
 ### Using value-objects with `JsonSerializerContext`

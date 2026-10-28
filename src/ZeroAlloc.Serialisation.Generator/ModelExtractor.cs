@@ -645,6 +645,25 @@ internal static class ModelExtractor
                 MemoryPackDiagnostic: null);
         }
 
+        var factory = ResolveFactory(candidate, GetUnderlyingProperty(candidate)!);
+        var constructionBlocker = ConstructionDescriptor(factory, displayName, model.UnderlyingTypeDisplayName);
+        if (constructionBlocker is not null)
+        {
+            var attrSyntax = ctx.Attributes.Length > 0
+                ? ctx.Attributes[0].ApplicationSyntaxReference?.GetSyntax(ct)
+                : null;
+            var location = attrSyntax is not null
+                ? LocationInfo.From(attrSyntax)
+                : TypeIdentifierLocation(ctx.TargetNode);
+            return new ValueObjectExtractionResult(
+                Model: null,
+                Diagnostics: new EquatableArray<DiagnosticInfo>(new[]
+                {
+                    new DiagnosticInfo(constructionBlocker.Value.Descriptor, location, constructionBlocker.Value.Args),
+                }),
+                MemoryPackDiagnostic: null);
+        }
+
         DiagnosticInfo? memoryPackDiagnostic = null;
         for (var containing = candidate.ContainingType; containing is not null; containing = containing.ContainingType)
         {
@@ -668,6 +687,28 @@ internal static class ModelExtractor
             model,
             new EquatableArray<DiagnosticInfo>(Array.Empty<DiagnosticInfo>()),
             memoryPackDiagnostic);
+    }
+
+    private static IPropertySymbol? GetUnderlyingProperty(INamedTypeSymbol type) =>
+        type.GetMembers().OfType<IPropertySymbol>()
+            .Single(p => !p.IsStatic && p.DeclaredAccessibility == Accessibility.Public);
+
+    private static (DiagnosticDescriptor Descriptor, EquatableArray<string> Args)? ConstructionDescriptor(
+        FactoryResolution factory, string displayName, string underlyingDisplayName)
+    {
+        if (factory.InvalidExplicitName is not null)
+        {
+            return (SerializerDiagnostics.ValueObjectFactoryInvalid,
+                new EquatableArray<string>(new[] { displayName, factory.InvalidExplicitName }));
+        }
+
+        if (factory.Kind == ValueObjectFactoryKind.None && !factory.ConstructorAccessible)
+        {
+            return (SerializerDiagnostics.ValueObjectConstructorInaccessible,
+                new EquatableArray<string>(new[] { displayName, underlyingDisplayName }));
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -724,8 +765,100 @@ internal static class ModelExtractor
             .Where(p => !p.IsStatic && p.DeclaredAccessibility == Accessibility.Public)
             .ToArray();
 
-        return properties.Length == 1 ? ValueObjectModel.From(candidate, properties[0]) : null;
+        if (properties.Length != 1) return null;
+
+        var factory = ResolveFactory(candidate, properties[0]);
+        return ValueObjectModel.From(candidate, properties[0], factory.Kind, factory.Name);
     }
+
+    private const string ValueObjectFactoryAttributeFqn = "ZeroAlloc.ValueObjects.ValueObjectFactoryAttribute";
+
+    /// <summary>The outcome of looking for the entry point a generated reader builds a value object with.</summary>
+    /// <param name="Kind">The factory found, or none.</param>
+    /// <param name="Name">The factory's name, or empty.</param>
+    /// <param name="InvalidExplicitName">
+    /// The method name <c>[ValueObjectFactory]</c> names when no usable method has it, else null.
+    /// </param>
+    /// <param name="ConstructorAccessible">
+    /// Whether a constructor taking the underlying value is reachable from a sibling type.
+    /// </param>
+    internal readonly record struct FactoryResolution(
+        ValueObjectFactoryKind Kind,
+        string Name,
+        string? InvalidExplicitName,
+        bool ConstructorAccessible);
+
+    /// <summary>
+    /// Decides how generated readers build <paramref name="type"/>: the method <c>[ValueObjectFactory]</c>
+    /// names, else a <c>TryCreate</c> or <c>Create</c> by convention with <c>TryCreate</c> first, else the
+    /// constructor. The readers are siblings of the type, so only public, internal and protected internal
+    /// members count as accessible.
+    /// </summary>
+    internal static FactoryResolution ResolveFactory(INamedTypeSymbol type, IPropertySymbol underlying)
+    {
+        var ctorAccessible = type.InstanceConstructors.Any(c =>
+            IsSiblingAccessible(c.DeclaredAccessibility)
+            && c.Parameters.Length == 1
+            && c.Parameters[0].RefKind == RefKind.None
+            && SymbolEqualityComparer.Default.Equals(c.Parameters[0].Type, underlying.Type));
+
+        var attribute = type.GetAttributes().FirstOrDefault(a => string.Equals(
+            a.AttributeClass?.ToDisplayString(), ValueObjectFactoryAttributeFqn, StringComparison.Ordinal));
+        if (attribute is not null)
+        {
+            var named = attribute.ConstructorArguments.Length == 1
+                ? attribute.ConstructorArguments[0].Value as string
+                : null;
+            var kind = named is { Length: > 0 } ? FindFactory(type, underlying, named) : ValueObjectFactoryKind.None;
+            return kind == ValueObjectFactoryKind.None
+                ? new FactoryResolution(ValueObjectFactoryKind.None, "", named ?? "", ctorAccessible)
+                : new FactoryResolution(kind, named!, null, ctorAccessible);
+        }
+
+        foreach (var conventional in new[] { "TryCreate", "Create" })
+        {
+            var kind = FindFactory(type, underlying, conventional);
+            if (kind != ValueObjectFactoryKind.None) return new FactoryResolution(kind, conventional, null, ctorAccessible);
+        }
+
+        return new FactoryResolution(ValueObjectFactoryKind.None, "", null, ctorAccessible);
+    }
+
+    private static ValueObjectFactoryKind FindFactory(INamedTypeSymbol type, IPropertySymbol underlying, string name)
+    {
+        var found = ValueObjectFactoryKind.None;
+        foreach (var method in type.GetMembers(name).OfType<IMethodSymbol>())
+        {
+            if (!method.IsStatic
+                || method.MethodKind != MethodKind.Ordinary
+                || method.TypeParameters.Length > 0
+                || !IsSiblingAccessible(method.DeclaredAccessibility)
+                || method.Parameters.Length == 0
+                || method.Parameters[0].RefKind != RefKind.None
+                || !SymbolEqualityComparer.Default.Equals(method.Parameters[0].Type, underlying.Type))
+            {
+                continue;
+            }
+
+            if (method.Parameters.Length == 2
+                && method.Parameters[1].RefKind == RefKind.Out
+                && method.ReturnType.SpecialType == SpecialType.System_Boolean
+                && SymbolEqualityComparer.Default.Equals(method.Parameters[1].Type, type))
+            {
+                return ValueObjectFactoryKind.TryCreate;
+            }
+
+            if (method.Parameters.Length == 1 && SymbolEqualityComparer.Default.Equals(method.ReturnType, type))
+            {
+                found = ValueObjectFactoryKind.Create;
+            }
+        }
+
+        return found;
+    }
+
+    private static bool IsSiblingAccessible(Accessibility accessibility) =>
+        accessibility is Accessibility.Public or Accessibility.Internal or Accessibility.ProtectedOrInternal;
 
     /// <summary>
     /// Joins a STJ extraction result with the flattened set of context entries in the compilation,
