@@ -226,10 +226,12 @@ public sealed class ValueObjectDiagnosticTests
     }
 
     [Fact]
-    public void ZASZ005_CanBeSuppressedWithPragma()
+    public void PragmaAroundOneType_SuppressesThatZASZ005Only()
     {
+        // The driver marks the diagnostics a #pragma covers as suppressed, as the compiler does. A
+        // generator's error is suppressible this way too, unlike a compiler error such as CS0122.
         var declaration = """
-            public partial class Container<T>
+            public partial class Quiet<T>
             {
             #pragma warning disable ZASZ005
                 [ValueObject]
@@ -240,11 +242,55 @@ public sealed class ValueObjectDiagnosticTests
                     public Id(int value) => Value = value;
                 }
             }
+
+            public partial class Loud<T>
+            {
+                [ValueObject]
+                public sealed partial class Id
+                {
+                    public int Value { get; }
+                    public Id(int value) => Value = value;
+                }
+            }
             """;
 
-        var (output, _) = Run(declaration, memoryPack: true);
+        var (_, result) = Run(declaration, memoryPack: true);
 
-        Assert.DoesNotContain(output.GetDiagnostics(), static d => d.Id == "ZASZ005");
+        var zasz005 = result.Diagnostics.Where(static d => d.Id == "ZASZ005").ToList();
+        Assert.Equal(2, zasz005.Count);
+        Assert.True(zasz005.Single(static d => d.GetMessage().Contains("'Demo.Quiet<T>.Id'", StringComparison.Ordinal)).IsSuppressed);
+        Assert.False(zasz005.Single(static d => d.GetMessage().Contains("'Demo.Loud<T>.Id'", StringComparison.Ordinal)).IsSuppressed);
+    }
+
+    [Fact]
+    public void PragmaAroundOneType_SuppressesThatZASZ015Only()
+    {
+        var declaration = """
+            #pragma warning disable ZASZ015
+            [ValueObject]
+            public readonly partial struct Quiet
+            {
+                public int Value { get; }
+                private Quiet(int value) => Value = value;
+                public static bool TryCreate(int input, out Quiet id) { id = new Quiet(input); return input > 0; }
+            }
+            #pragma warning restore ZASZ015
+
+            [ValueObject]
+            public readonly partial struct Loud
+            {
+                public int Value { get; }
+                private Loud(int value) => Value = value;
+                public static bool TryCreate(int input, out Loud id) { id = new Loud(input); return input > 0; }
+            }
+            """;
+
+        var (_, result) = Run(declaration, memoryPack: true);
+
+        var zasz015 = result.Diagnostics.Where(static d => d.Id == "ZASZ015").ToList();
+        Assert.Equal(2, zasz015.Count);
+        Assert.True(zasz015.Single(static d => d.GetMessage().Contains("'Demo.Quiet'", StringComparison.Ordinal)).IsSuppressed);
+        Assert.False(zasz015.Single(static d => d.GetMessage().Contains("'Demo.Loud'", StringComparison.Ordinal)).IsSuppressed);
     }
 
     [Theory]

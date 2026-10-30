@@ -129,12 +129,9 @@ internal static class GeneratorTestHost
     /// its diagnostics as the driver filters them: a <c>#pragma warning disable</c> marks the ones
     /// it covers as suppressed.
     /// </summary>
-    public static IReadOnlyList<Diagnostic> GenerateOnFile(
-        string source, IReadOnlyDictionary<string, ReportDiagnostic>? severities = null)
+    public static IReadOnlyList<Diagnostic> GenerateOnFile(string source)
     {
         var compilation = CreateCompilation(new[] { CSharpSyntaxTree.ParseText(source, path: TestFilePath) });
-        if (severities is not null)
-            compilation = compilation.WithOptions(compilation.Options.WithSpecificDiagnosticOptions(severities));
 
         var driver = CSharpGeneratorDriver.Create(new SerializerGenerator()).RunGenerators(compilation);
         return driver.GetRunResult().Diagnostics;
