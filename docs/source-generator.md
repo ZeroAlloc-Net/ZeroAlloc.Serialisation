@@ -235,6 +235,7 @@ internal partial class AppJsonContext : JsonSerializerContext { }
 | `ZASZ012` | Error | The `ZeroAllocGeneratedAccessibility` MSBuild property is set to a value other than `Public` or `Internal`. See [Making the Generated Registration Internal](dependency-injection.md#making-the-generated-registration-internal). |
 | `ZASZ013` | Error | `[ValueObjectFactory]` names a method that is not an accessible static `TryCreate` or `Create` shape. |
 | `ZASZ014` | Error | A `[ValueObject]` type has no accessible constructor taking the underlying value and no accessible factory. |
+| `ZASZ015` | Warning | A struct `[ValueObject]` that holds no references has a factory, and the compilation references MemoryPack, which never calls that factory. |
 
 ### ZASZ005: `[ValueObject]` type cannot get generated serializers
 
@@ -256,6 +257,12 @@ Reported at the `[ValueObject]` attribute; nothing is generated for the type. `[
 ### ZASZ014: `[ValueObject]` type has no way to be constructed
 
 Reported at the `[ValueObject]` attribute; nothing is generated for the type. The generated readers sit next to the value object, so without a factory they need a `public`, `internal` or `protected internal` constructor taking the underlying value. A `private` or `protected` constructor used to surface as `CS0122` inside the generated file. Make the constructor `internal`, or declare a factory.
+
+### ZASZ015: MemoryPack does not validate a struct value object that holds no references
+
+Reported on the value object's name when the compilation references `ZeroAlloc.Serialisation.MemoryPack`, the value object is a struct whose fields hold no references, such as one over an `int`, `Guid`, `TimeSpan` or an enum, and it has a [validating factory](#validating-on-deserialization). MemoryPack reads and writes any type for which `RuntimeHelpers.IsReferenceOrContainsReferences<T>()` is `false` as raw memory and never calls a registered formatter. That happens at the top level, in `ZeroAlloc.Serialisation.MemoryPack`'s own serializer as well, for members of a `[MemoryPackable]` type and for arrays. The generated MemoryPack formatter, which calls `TryCreate` or `Create`, therefore never runs, and a value the factory would reject deserializes without an error. System.Text.Json and MessagePack still call the factory.
+
+The formatter is still generated and registered, so it takes effect if MemoryPack ever asks for it. To get validation on the MemoryPack backend, make the value object a class, validate the value after reading it, or use System.Text.Json or MessagePack for data that has to be validated. A struct over `string` or `byte[]`, a class, and a struct without a factory are not reported. When the limit is acceptable, suppress the warning at the declaration with `#pragma warning disable ZASZ015`.
 
 ## Validating on deserialization
 
@@ -283,7 +290,7 @@ public readonly partial struct Sku
 
 The factory must be at least `internal`, since the readers are siblings of the type, and its first parameter must be the underlying type; nullable annotations do not matter.
 
-A rejected value throws `JsonException` from the System.Text.Json converter, `MessagePackSerializationException` from the MessagePack formatter and `MemoryPackSerializationException` from the MemoryPack formatter, so ASP.NET Core answers 400 instead of accepting the value. When `Create` throws, the exception is wrapped with the original as `InnerException`. Note that `MessagePackSerializer.Deserialize` wraps whatever a formatter throws once more, so the original may sit two levels down. The messages never contain the rejected value. MemoryPack serializes a struct that holds only unmanaged data, such as an `int`, `Guid` or `TimeSpan`, as raw memory and never calls a registered formatter, so a struct value object over such a type is not validated by the MemoryPack backend; class value objects and structs over `string` or `byte[]` are. The factory call allocates nothing beyond what the factory does, and uses no reflection.
+A rejected value throws `JsonException` from the System.Text.Json converter, `MessagePackSerializationException` from the MessagePack formatter and `MemoryPackSerializationException` from the MemoryPack formatter, so ASP.NET Core answers 400 instead of accepting the value. When `Create` throws, the exception is wrapped with the original as `InnerException`. Note that `MessagePackSerializer.Deserialize` wraps whatever a formatter throws once more, so the original may sit two levels down. The messages never contain the rejected value. MemoryPack serializes a struct that holds only unmanaged data, such as an `int`, `Guid` or `TimeSpan`, as raw memory and never calls a registered formatter, so a struct value object over such a type is not validated by the MemoryPack backend; class value objects and structs over `string` or `byte[]` are. The generator warns about such a struct with [ZASZ015](#zasz015-memorypack-does-not-validate-a-struct-value-object-that-holds-no-references). The factory call allocates nothing beyond what the factory does, and uses no reflection.
 
 **Behaviour change.** An existing value object that already declares a conforming `TryCreate` or `Create` starts validating on deserialization, and values it rejects now throw where they used to deserialize.
 

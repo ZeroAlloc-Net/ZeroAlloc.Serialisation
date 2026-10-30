@@ -126,4 +126,14 @@ internal static class SerializerDiagnostics
         defaultSeverity: DiagnosticSeverity.Error,
         isEnabledByDefault: true,
         description: "The generated readers run next to the value object, so they can call a public, internal or protected internal constructor taking the underlying value. Make the constructor internal, or declare a static bool TryCreate(TUnderlying, out T) or static T Create(TUnderlying) that is at least internal, or name one with [ValueObjectFactory]. A factory is also the way to validate wire values.");
+
+    public static readonly DiagnosticDescriptor ValueObjectMemoryPackSkipsFactory = new(
+        id: "ZASZ015",
+        title: "MemoryPack does not validate a struct value object that holds no references",
+        messageFormat: "MemoryPack copies [ValueObject] struct '{0}' as raw memory because it holds no references, so its factory '{1}' never runs when MemoryPack deserializes it; System.Text.Json and MessagePack still call it",
+        category: Category,
+        defaultSeverity: DiagnosticSeverity.Warning,
+        isEnabledByDefault: true,
+        description: "MemoryPack reads and writes a type that holds no references as raw memory and never calls a registered formatter, at the top level, as a member of a [MemoryPackable] type, and in arrays. The generated MemoryPack formatter, which calls TryCreate or Create, therefore never runs for such a struct, and invalid wire values are accepted. Make the value object a class, validate after reading MemoryPack data, or use System.Text.Json or MessagePack for data that must be validated.",
+        helpLinkUri: "https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/blob/main/docs/source-generator.md#zasz015-memorypack-does-not-validate-a-struct-value-object-that-holds-no-references");
 }

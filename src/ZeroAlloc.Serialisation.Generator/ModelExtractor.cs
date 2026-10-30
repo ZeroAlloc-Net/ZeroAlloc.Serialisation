@@ -611,7 +611,8 @@ internal static class ModelExtractor
     /// <summary>
     /// Inspects a <c>[ValueObject]</c> application. A transparent value object gets a model,
     /// unless it is generic, nested in a generic type or file-local, which ZASZ005 reports. One
-    /// inside a private or protected containing type carries ZASZ006 for the MemoryPack backend.
+    /// inside a private or protected containing type carries ZASZ006 for the MemoryPack backend, and
+    /// a struct that holds no references and has a factory carries ZASZ015 for it.
     /// </summary>
     internal static ValueObjectExtractionResult? ExtractValueObject(
         GeneratorAttributeSyntaxContext ctx,
@@ -642,7 +643,8 @@ internal static class ModelExtractor
                         attrLocation,
                         new EquatableArray<string>(new[] { displayName, blocker })),
                 }),
-                MemoryPackDiagnostic: null);
+                MemoryPackDiagnostic: null,
+                MemoryPackWarning: null);
         }
 
         var factory = ResolveFactory(candidate, GetUnderlyingProperty(candidate)!);
@@ -661,7 +663,8 @@ internal static class ModelExtractor
                 {
                     new DiagnosticInfo(constructionBlocker.Value.Descriptor, location, constructionBlocker.Value.Args),
                 }),
-                MemoryPackDiagnostic: null);
+                MemoryPackDiagnostic: null,
+                MemoryPackWarning: null);
         }
 
         DiagnosticInfo? memoryPackDiagnostic = null;
@@ -683,10 +686,23 @@ internal static class ModelExtractor
             break;
         }
 
+        // MemoryPack copies a type that holds no references as raw memory, the same test as
+        // RuntimeHelpers.IsReferenceOrContainsReferences, and never calls the formatter, so the
+        // factory it would call never runs. A constructor-only type has nothing to skip.
+        DiagnosticInfo? memoryPackWarning = null;
+        if (candidate.IsValueType && candidate.IsUnmanagedType && factory.Kind != ValueObjectFactoryKind.None)
+        {
+            memoryPackWarning = new DiagnosticInfo(
+                SerializerDiagnostics.ValueObjectMemoryPackSkipsFactory,
+                TypeIdentifierLocation(ctx.TargetNode),
+                new EquatableArray<string>(new[] { displayName, factory.Name }));
+        }
+
         return new ValueObjectExtractionResult(
             model,
             new EquatableArray<DiagnosticInfo>(Array.Empty<DiagnosticInfo>()),
-            memoryPackDiagnostic);
+            memoryPackDiagnostic,
+            memoryPackWarning);
     }
 
     private static IPropertySymbol? GetUnderlyingProperty(INamedTypeSymbol type) =>

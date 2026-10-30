@@ -202,6 +202,8 @@ public class ValueObjectFactoryTests
     // MemoryPack copies a struct that holds only unmanaged data, such as an int or a TimeSpan,
     // as raw memory and never asks the registered formatter, so the three tests below can only
     // check that a valid value reads back. A string, or a class, goes through the formatter.
+    // The generator reports this as ZASZ015, see docs/source-generator.md, and the models these
+    // tests use suppress it locally because they exercise exactly that limit.
     [Fact]
     public void MemoryPack_BothShapes_ValidValueReadsBack() =>
         Assert.Equal(3, MemoryPackSerializer.Deserialize<BothShapes>(MemBytes(3)).Value);
