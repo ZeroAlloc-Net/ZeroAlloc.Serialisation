@@ -100,10 +100,10 @@ public sealed class SerializerDiagnosticLocationTests
     }
 
     [Fact]
-    public void PragmaAroundOneType_SuppressesThatZASZ004Only_WhenItsSeverityIsLowered()
+    public void PragmaAroundOneType_SuppressesThatZASZ004Only()
     {
-        // A #pragma cannot suppress an error, so the rule is lowered to a warning, as an
-        // .editorconfig would. The pragma then applies only if the diagnostic is bound to the tree.
+        // ZASZ004 is an error. A #pragma suppresses a generator's error too, unlike a compiler error,
+        // but only if the diagnostic is bound to the tree.
         var diagnostics = GeneratorTestHost.GenerateOnFile(
             """
             using ZeroAlloc.Serialisation;
@@ -114,8 +114,7 @@ public sealed class SerializerDiagnosticLocationTests
             #pragma warning restore ZASZ004
             [ZeroAllocSerializable(SerializationFormat.SystemTextJson)]
             public sealed class Loud { public string V { get; set; } = ""; }
-            """,
-            new Dictionary<string, ReportDiagnostic>(StringComparer.Ordinal) { ["ZASZ004"] = ReportDiagnostic.Warn });
+            """);
 
         var zasz004 = diagnostics.Where(d => string.Equals(d.Id, "ZASZ004", StringComparison.Ordinal)).ToList();
         Assert.Equal(2, zasz004.Count);

@@ -184,7 +184,8 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             .WithTrackingName(TrackingNames.ValueObjectBackends);
 
         // The per-type outputs take the whole result: ZASZ006 is reported, and the MemoryPack
-        // formatter skipped, only when the MemoryPack backend is referenced.
+        // formatter skipped, only when the MemoryPack backend is referenced. So is ZASZ015, which
+        // leaves the formatter in place.
         var perTypeInput = valueObjectResults
             .Where(static r => r.Model is not null)
             .Combine(backends)
@@ -205,6 +206,11 @@ public sealed class SerializerGenerator : IIncrementalGenerator
             {
                 var mpSource = ValueObjectEmitter.EmitMessagePackFormatter(model);
                 sourceCtx.AddSource(ValueObjectEmitter.HintName(model, "MessagePackFormatter"), mpSource);
+            }
+
+            if (backendFlags.MemoryPack && result.MemoryPackWarning is { } memoryPackWarning)
+            {
+                sourceCtx.ReportDiagnostic(memoryPackWarning.ToDiagnostic());
             }
 
             if (backendFlags.MemoryPack && result.MemoryPackDiagnostic is { } memoryPackDiagnostic)

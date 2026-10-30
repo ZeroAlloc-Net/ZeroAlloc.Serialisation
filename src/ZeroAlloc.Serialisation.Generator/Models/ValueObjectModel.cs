@@ -196,10 +196,15 @@ internal sealed record ContainingTypeModel(
 /// ZASZ006, reported only when the compilation references the MemoryPack backend. When set, no
 /// MemoryPack formatter is generated for the type.
 /// </param>
+/// <param name="MemoryPackWarning">
+/// ZASZ015, reported only when the compilation references the MemoryPack backend. The MemoryPack
+/// formatter is still generated.
+/// </param>
 internal sealed record ValueObjectExtractionResult(
     ValueObjectModel? Model,
     EquatableArray<DiagnosticInfo> Diagnostics,
-    DiagnosticInfo? MemoryPackDiagnostic);
+    DiagnosticInfo? MemoryPackDiagnostic,
+    DiagnosticInfo? MemoryPackWarning);
 
 /// <summary>
 /// Which serializer backends the compilation references. Three bools, so the value compares equal

@@ -89,6 +89,9 @@ namespace ZeroAlloc.Serialisation.Tests
     }
 
     // Both shapes: TryCreate wins, so the throwing Create is never called.
+    // ZASZ015 is expected here: MemoryPack copies this struct as raw memory, so its factory runs
+    // only on the other backends, which is what ValueObjectFactoryTests checks.
+#pragma warning disable ZASZ015
     [global::ZeroAlloc.ValueObjects.ValueObject]
     public readonly partial struct BothShapes
     {
@@ -103,6 +106,7 @@ namespace ZeroAlloc.Serialisation.Tests
 
         public static BothShapes Create(int input) => throw new global::System.InvalidOperationException("Create must not be called.");
     }
+#pragma warning restore ZASZ015
 
     // The attribute overrides the convention: TryCreate rejects everything, Parse is used.
     [global::ZeroAlloc.ValueObjects.ValueObject]
@@ -128,6 +132,9 @@ namespace ZeroAlloc.Serialisation.Tests
     }
 
     // The attribute can name a Create-shaped method too.
+    // ZASZ015 is expected here: MemoryPack copies this struct as raw memory, so its factory runs
+    // only on the other backends, which is what ValueObjectFactoryTests checks.
+#pragma warning disable ZASZ015
     [global::ZeroAlloc.ValueObjects.ValueObject]
     [global::ZeroAlloc.ValueObjects.ValueObjectFactory(nameof(From))]
     public readonly partial struct ExplicitCreate
@@ -138,8 +145,12 @@ namespace ZeroAlloc.Serialisation.Tests
         public static ExplicitCreate From(int value) =>
             value % 2 == 0 ? new ExplicitCreate(value) : throw new global::System.ArgumentOutOfRangeException(nameof(value));
     }
+#pragma warning restore ZASZ015
 
     // The TimeSpan wire path has its own emit site.
+    // ZASZ015 is expected here: MemoryPack copies this struct as raw memory, so its factory runs
+    // only on the other backends, which is what ValueObjectFactoryTests checks.
+#pragma warning disable ZASZ015
     [global::ZeroAlloc.ValueObjects.ValueObject]
     public readonly partial struct PositiveSpan
     {
@@ -154,4 +165,5 @@ namespace ZeroAlloc.Serialisation.Tests
             return true;
         }
     }
+#pragma warning restore ZASZ015
 }
