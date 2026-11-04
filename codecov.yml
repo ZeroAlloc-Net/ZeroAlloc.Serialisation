@@ -1,10 +1,11 @@
-# Codecov: coverage per PR. Rolled out 2026-10-17; both statuses are informational, so nothing
-# blocks a merge yet. Make patch a real check once the numbers settle.
+# The project status is the ci-baseline block: a drop of more than 1 percentage point fails it. The coverage-gate
+# step in ci.yml checks this file. The patch status stays informational; the gate governs only the project status.
 coverage:
   status:
     project:
       default:
-        informational: true
+        target: auto
+        threshold: 1%
     patch:
       default:
         target: 80%
@@ -16,6 +17,7 @@ comment:
 
 ignore:
   - "tests/**"
+  - "benchmarks/**"
   - "samples/**"
   - "**/obj/**"
   - "**/*.g.cs"
