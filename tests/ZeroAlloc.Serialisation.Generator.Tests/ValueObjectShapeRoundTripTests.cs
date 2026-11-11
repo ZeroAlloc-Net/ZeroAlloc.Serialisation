@@ -479,7 +479,7 @@ public sealed class ValueObjectShapeRoundTripTests
 
     private static Compilation RunGenerator(string[] sources, Backend backends)
     {
-        var references = new List<MetadataReference>(Basic.Reference.Assemblies.Net100.References.All)
+        var references = new List<MetadataReference>(TestReferences.Bcl)
         {
             MetadataReference.CreateFromFile(typeof(ZeroAllocSerializableAttribute).Assembly.Location),
         };

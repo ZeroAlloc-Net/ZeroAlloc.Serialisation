@@ -103,10 +103,16 @@ public class DispatcherGenericDeserializeTests
         var backend = AllocationGate.MeasureBytesPerCall(Iterations, () => result = serializer.Deserialize(s_stjBytes.Span));
         var bytes = AllocationGate.MeasureBytesPerCall(Iterations, () => result = dispatcher.Deserialize<ReadStjStruct>(s_stjBytes));
 
-        // 136 B in the optimised code. Unoptimised tier-0 code boxes 32 B more, which the
-        // allocation gate measured before ZeroAlloc.TestHelpers 1.8.0.
+        // 136 B in the optimised code on .NET 10, 32 B on .NET 11 where System.Text.Json no longer
+        // allocates its constructor-argument state for a struct. Unoptimised tier-0 code boxes 32 B
+        // more, which the allocation gate measured before ZeroAlloc.TestHelpers 1.8.0.
+#if NET11_0_OR_GREATER
+        const long expectedBytes = 32;
+#else
+        const long expectedBytes = 136;
+#endif
         Assert.Equal(backend, bytes);
-        Assert.Equal(136, bytes);
+        Assert.Equal(expectedBytes, bytes);
         Assert.Equal(s_stj, result);
     }
 

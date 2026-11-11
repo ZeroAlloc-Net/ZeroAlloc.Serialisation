@@ -635,7 +635,7 @@ public sealed class ValueObjectDiagnosticTests
     {
         var source = "using ZeroAlloc.ValueObjects;\nnamespace Demo;\n\n" + declaration + "\n" + Supported;
 
-        var references = new List<MetadataReference>(Basic.Reference.Assemblies.Net100.References.All)
+        var references = new List<MetadataReference>(TestReferences.Bcl)
         {
             MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.SystemTextJson.SystemTextJsonSerializer<int>).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.MessagePack.MessagePackSerializer<int>).Assembly.Location),
