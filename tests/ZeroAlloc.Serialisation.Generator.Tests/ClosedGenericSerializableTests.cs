@@ -544,7 +544,7 @@ public sealed class ClosedGenericSerializableTests
 
     private static CSharpCompilation CreateCompilation(SyntaxTree[] trees)
     {
-        var references = new List<MetadataReference>(Basic.Reference.Assemblies.Net100.References.All)
+        var references = new List<MetadataReference>(TestReferences.Bcl)
         {
             MetadataReference.CreateFromFile(typeof(ZeroAllocSerializableAttribute).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(global::MessagePack.MessagePackSerializer).Assembly.Location),

@@ -157,7 +157,7 @@ public sealed class ValueObjectIncrementalityTests
         CSharpCompilation.Create(
             "TestAssembly",
             [.. trees, CSharpSyntaxTree.ParseText(ValueObjectStub, path: "/src/ValueObjectStub.cs")],
-            [.. Basic.Reference.Assemblies.Net100.References.All, .. backends],
+            [.. TestReferences.Bcl, .. backends],
             new CSharpCompilationOptions(OutputKind.DynamicallyLinkedLibrary));
 
     private static void AssertAllCachedOrUnchanged(string stepName, ImmutableArray<IncrementalGeneratorRunStep> runSteps)

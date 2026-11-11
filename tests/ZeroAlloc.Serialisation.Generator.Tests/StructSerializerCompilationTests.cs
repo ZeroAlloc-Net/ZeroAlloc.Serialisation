@@ -199,7 +199,7 @@ public sealed class StructSerializerCompilationTests
     private static (Compilation Output, IReadOnlyList<SyntaxTree> Generated) RunGenerator(
         string source, CSharpParseOptions? parseOptions = null)
     {
-        var references = new List<MetadataReference>(Basic.Reference.Assemblies.Net100.References.All)
+        var references = new List<MetadataReference>(TestReferences.Bcl)
         {
             MetadataReference.CreateFromFile(typeof(ZeroAllocSerializableAttribute).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(global::MemoryPack.MemoryPackSerializer).Assembly.Location),

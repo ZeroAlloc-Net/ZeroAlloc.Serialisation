@@ -412,7 +412,7 @@ public sealed class SerializerEmissionSnapshotTests
         var zeroAllocRef = MetadataReference.CreateFromFile(
             typeof(ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute).Assembly.Location);
         var refs = new System.Collections.Generic.List<MetadataReference>(
-            Basic.Reference.Assemblies.Net100.References.All) { zeroAllocRef };
+            TestReferences.Bcl) { zeroAllocRef };
         var compilation = CSharpCompilation.Create(
             "TestAssembly",
             new[] { tree },

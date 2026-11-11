@@ -145,7 +145,7 @@ internal static class GeneratorTestHost
         var zeroAllocRef = MetadataReference.CreateFromFile(
             typeof(ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute).Assembly.Location);
 
-        var references = new List<MetadataReference>(Basic.Reference.Assemblies.Net100.References.All)
+        var references = new List<MetadataReference>(TestReferences.Bcl)
         {
             zeroAllocRef,
         };

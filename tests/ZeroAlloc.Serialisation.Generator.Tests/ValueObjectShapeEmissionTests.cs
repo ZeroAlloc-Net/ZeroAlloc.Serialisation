@@ -360,7 +360,7 @@ public sealed class ValueObjectShapeEmissionTests
             "TestAssembly",
             [CSharpSyntaxTree.ParseText(source), CSharpSyntaxTree.ParseText(ValueObjectStub)],
             [
-                .. Basic.Reference.Assemblies.Net100.References.All,
+                .. TestReferences.Bcl,
                 MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.SystemTextJson.SystemTextJsonSerializer<int>).Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.MessagePack.MessagePackSerializer<int>).Assembly.Location),
                 MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.MemoryPack.MemoryPackSerializer<int>).Assembly.Location),

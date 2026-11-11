@@ -126,7 +126,7 @@ public sealed class RecordAndJsonBugTests
         var zeroAllocRef = MetadataReference.CreateFromFile(
             typeof(ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute).Assembly.Location);
 
-        return new List<MetadataReference>(Basic.Reference.Assemblies.Net100.References.All)
+        return new List<MetadataReference>(TestReferences.Bcl)
         {
             zeroAllocRef,
         };
