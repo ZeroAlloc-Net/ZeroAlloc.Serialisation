@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.11.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.10.0...v2.11.0) (2026-11-11)
+
+
+### Features
+
+* add net11.0 target ([#269](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/269)) ([6c31d93](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/6c31d93a22977dad4a03e1a33c37f465355c6383))
+
+
+### Documentation
+
+* add context7.json to claim the library on Context7 ([#266](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/266)) ([5500091](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/55000913a397b319cb3d7d63248599e6f34019ad))
+
 ## [2.10.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.9.0...v2.10.0) (2026-10-30)
 
 
