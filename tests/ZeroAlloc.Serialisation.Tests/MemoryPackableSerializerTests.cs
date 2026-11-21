@@ -12,9 +12,9 @@ public partial class SampleDto
     public string Name { get; set; } = "";
 }
 
-public class MemoryPackSerializerTests
+public class MemoryPackableSerializerTests
 {
-    private readonly MemoryPackSerializer<SampleDto> _serializer = new();
+    private readonly MemoryPackableSerializer<SampleDto> _serializer = new();
 
     [Fact]
     public void RoundTrip_PreservesValues()

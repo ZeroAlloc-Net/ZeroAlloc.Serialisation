@@ -18,7 +18,7 @@ Under System.Text.Json and MemoryPack this is AOT-safe end to end, and the AOT s
 
 ## Base Classes
 
-The reflection-based constructors of the base classes (`MemoryPackSerializer<T>()`, `MessagePackSerializer<T>()` and `MessagePackSerializer<T>(MessagePackSerializerOptions)`) carry `[RequiresDynamicCode]` and `[RequiresUnreferencedCode]`, because MemoryPack and MessagePack then find formatters through reflection. Use them only where AOT is not required. For Native AOT use `MemoryPackableSerializer<T>` for a `[MemoryPackable]` type, or `new MessagePackSerializer<T>(resolver)` with a resolver built from a `[GeneratedMessagePackResolver]` class and `BuiltinResolver.Instance`.
+Neither adapter has a constructor that lets the backend find formatters through reflection, so none of them carries `[RequiresDynamicCode]` or `[RequiresUnreferencedCode]`. `MemoryPackableSerializer<T>` takes a `[MemoryPackable]` type and registers its formatter itself. `MessagePackSerializer<T>` requires a resolver: for Native AOT, build it from a `[GeneratedMessagePackResolver]` class and `BuiltinResolver.Instance`. Passing a reflection-based resolver such as `StandardResolver.Instance` is still possible outside Native AOT; the resolver, not the adapter, then decides what is trim-safe.
 
 `SystemTextJsonSerializer<T>` is AOT-safe even as a base class because it requires a `JsonTypeInfo<T>` injected at construction time.
 

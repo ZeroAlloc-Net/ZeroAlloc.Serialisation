@@ -1,5 +1,7 @@
 using System.Buffers;
 using BenchmarkDotNet.Attributes;
+using MessagePack;
+using MessagePack.Resolvers;
 using ZeroAlloc.Serialisation;
 using ZeroAlloc.Serialisation.MemoryPack;
 using ZeroAlloc.Serialisation.MessagePack;
@@ -15,8 +17,8 @@ public class SerializerBenchmarks
 {
     private static readonly BenchDto s_dto = new() { Id = 42, Name = "Alice" };
 
-    private readonly ISerializer<BenchDto> _mp = new MemoryPackSerializer<BenchDto>();
-    private readonly ISerializer<BenchDto> _msg = new MessagePackSerializer<BenchDto>();
+    private readonly ISerializer<BenchDto> _mp = new MemoryPackableSerializer<BenchDto>();
+    private readonly ISerializer<BenchDto> _msg = new MessagePackSerializer<BenchDto>(StandardResolver.Instance, MessagePackSerializerOptions.Standard);
     private readonly ISerializer<BenchDto> _stj = new SystemTextJsonSerializer<BenchDto>(BenchContext.Default.BenchDto);
 
     private byte[] _mpBytes = [];

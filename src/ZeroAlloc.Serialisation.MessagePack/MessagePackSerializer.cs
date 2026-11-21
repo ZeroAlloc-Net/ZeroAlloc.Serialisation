@@ -1,36 +1,18 @@
 using System.Buffers;
-using System.Diagnostics.CodeAnalysis;
 using MessagePack;
 using ZeroAlloc.Serialisation;
 
 namespace ZeroAlloc.Serialisation.MessagePack;
 
-/// <summary>An <see cref="ISerializer{T}"/> for MessagePack.</summary>
+/// <summary>An <see cref="ISerializer{T}"/> for MessagePack that reads every formatter from the resolver it is given.</summary>
+/// <remarks>
+/// There is no constructor that falls back to <see cref="MessagePackSerializerOptions.Standard"/>: its resolver
+/// builds formatters with reflection and dynamic code. Pass the resolver explicitly. For Native AOT, build it from a
+/// <c>[GeneratedMessagePackResolver]</c> class and <c>BuiltinResolver.Instance</c>.
+/// </remarks>
 public class MessagePackSerializer<T> : ISerializer<T>
 {
-    private const string ReflectionMessage =
-        "MessagePackSerializerOptions.Standard, and options whose resolver falls back to it, build formatters "
-        + "with reflection and dynamic code, which need members the trimmer may remove and code Native AOT "
-        + "cannot generate. For Native AOT, pass a resolver built from a [GeneratedMessagePackResolver] class "
-        + "and the built-in formatters to the MessagePackSerializer<T>(IFormatterResolver) constructor.";
-
     private readonly MessagePackSerializerOptions _options;
-
-    /// <summary>Serializes with <see cref="MessagePackSerializerOptions.Standard"/>, which uses reflection.</summary>
-    [RequiresUnreferencedCode(ReflectionMessage)]
-    [RequiresDynamicCode(ReflectionMessage)]
-    public MessagePackSerializer()
-        : this(MessagePackSerializerOptions.Standard) { }
-
-    /// <summary>
-    /// Serializes with these options. Their resolver may use reflection, which this constructor cannot
-    /// rule out, so it carries the trim and AOT annotations whatever the resolver is. To pass options with a
-    /// resolver that does not, use <see cref="MessagePackSerializer(IFormatterResolver, MessagePackSerializerOptions?)"/>.
-    /// </summary>
-    [RequiresUnreferencedCode(ReflectionMessage)]
-    [RequiresDynamicCode(ReflectionMessage)]
-    public MessagePackSerializer(MessagePackSerializerOptions options)
-        => _options = options;
 
     /// <summary>
     /// Serializes through <paramref name="resolver"/> only, with a copy of <paramref name="options"/>, or of

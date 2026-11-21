@@ -498,7 +498,7 @@ public sealed class ValueObjectShapeRoundTripTests
         if (backends.HasFlag(Backend.MemoryPack))
         {
             references.Add(MetadataReference.CreateFromFile(
-                typeof(ZeroAlloc.Serialisation.MemoryPack.MemoryPackSerializer<int>).Assembly.Location));
+                typeof(ZeroAlloc.Serialisation.MemoryPack.MemoryPackableSerializer<>).Assembly.Location));
             references.Add(MetadataReference.CreateFromFile(typeof(global::MemoryPack.MemoryPackSerializer).Assembly.Location));
         }
 

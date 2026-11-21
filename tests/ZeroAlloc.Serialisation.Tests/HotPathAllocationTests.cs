@@ -263,10 +263,11 @@ public class HotPathAllocationTests
     [Fact]
     public void MessagePack_Adapter_Deserialize_AllocatesOnlyWhatMessagePackItselfDoes()
     {
-        var serializer = new MessagePackSerializer<MsgpOrder>(MessagePackSerializerOptions.Standard);
-        var payload = global::MessagePack.MessagePackSerializer.Serialize(s_msgpOrder, MessagePackSerializerOptions.Standard);
+        var options = MessagePackSerializerOptions.Standard.WithResolver(TestResolvers.Aot);
+        var serializer = new MessagePackSerializer<MsgpOrder>(TestResolvers.Aot, MessagePackSerializerOptions.Standard);
+        var payload = global::MessagePack.MessagePackSerializer.Serialize(s_msgpOrder, options);
 
-        var raw = RawMessagePackDeserializeBytes(payload, MessagePackSerializerOptions.Standard);
+        var raw = RawMessagePackDeserializeBytes(payload, options);
         var wrapped = AllocationGate.MeasureBytesPerCall(Iterations, () => serializer.Deserialize(payload));
 
         Assert.Equal(raw, wrapped);
@@ -287,7 +288,7 @@ public class HotPathAllocationTests
     [Fact]
     public void MessagePack_Adapter_Deserialize_FromLargePayload_RoundTrips()
     {
-        var serializer = new MessagePackSerializer<MsgpOrder>(MessagePackSerializerOptions.Standard);
+        var serializer = new MessagePackSerializer<MsgpOrder>(TestResolvers.Aot);
         var big = new MsgpOrder { Id = new string('x', 100_000), Tags = Enumerable.Range(0, 1000).Select(i => i.ToString(CultureInfo.InvariantCulture)).ToArray() };
         var buffer = new ArrayBufferWriter<byte>();
         serializer.Serialize(buffer, big);

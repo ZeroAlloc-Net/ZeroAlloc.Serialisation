@@ -130,8 +130,12 @@ public static IServiceCollection AddOrdering(this IServiceCollection services)
 If you are using a backend class directly (for non-AOT or ad-hoc use) you can register it manually:
 
 ```csharp
-// MemoryPack — open-generic base class, carries [RequiresDynamicCode]
-services.AddSingleton<ISerializer<MyType>, MemoryPackSerializer<MyType>>();
+// MemoryPack — for a [MemoryPackable] type; registers the formatter without reflection
+services.AddSingleton<ISerializer<MyType>, MemoryPackableSerializer<MyType>>();
+
+// MessagePack — requires a resolver; for Native AOT, a source-generated one
+services.AddSingleton<ISerializer<MyType>>(
+    new MessagePackSerializer<MyType>(CompositeResolver.Create(MyResolver.Instance, BuiltinResolver.Instance)));
 
 // SystemTextJson — requires JsonTypeInfo<T>
 services.AddSingleton<ISerializer<MyType>>(

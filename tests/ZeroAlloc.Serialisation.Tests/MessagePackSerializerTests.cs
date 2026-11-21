@@ -14,7 +14,7 @@ public sealed class MsgPackDto
 
 public class MessagePackSerializerTests
 {
-    private readonly MessagePackSerializer<MsgPackDto> _serializer = new();
+    private readonly MessagePackSerializer<MsgPackDto> _serializer = new(TestResolvers.Aot);
 
     [Fact]
     public void RoundTrip_PreservesValues()

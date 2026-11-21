@@ -6,29 +6,17 @@
 dotnet add package ZeroAlloc.Serialisation.MemoryPack
 ```
 
-## Base Class
+## Adapter
 
-`MemoryPackSerializer<T>` implements `ISerializer<T>` for any `T : IMemoryPackable<T>`:
+`MemoryPackableSerializer<T>` implements `ISerializer<T>` for any `T : IMemoryPackable<T>`, that is, a `[MemoryPackable]` type:
 
 ```csharp
-public class MemoryPackSerializer<T> : ISerializer<T>
-{
-    [RequiresDynamicCode("...")]
-    [RequiresUnreferencedCode("...")]
-    public virtual void Serialize(IBufferWriter<byte> writer, T value)
-        => global::MemoryPack.MemoryPackSerializer.Serialize(writer, value);
-
-    [RequiresDynamicCode("...")]
-    [RequiresUnreferencedCode("...")]
-    public virtual T? Deserialize(ReadOnlySpan<byte> buffer)
-    {
-        if (buffer.IsEmpty) return default;
-        return global::MemoryPack.MemoryPackSerializer.Deserialize<T>(buffer);
-    }
-}
+ISerializer<MyEvent> serializer = new MemoryPackableSerializer<MyEvent>();
 ```
 
-The base class is open-generic and carries `[RequiresDynamicCode]`. For AOT use, use the source generator instead.
+The constructor registers the type's formatter through its generated static `RegisterFormatter`, so MemoryPack never looks it up by reflection. The class carries no trim or AOT annotations and is safe under Native AOT.
+
+Before 3.0 this package also had `MemoryPackSerializer<T>`, whose parameterless constructor let MemoryPack find the formatter through reflection. It is removed; use `MemoryPackableSerializer<T>`, or the source generator below.
 
 ## Source Generator Usage
 

@@ -644,7 +644,7 @@ public sealed class ValueObjectDiagnosticTests
         };
         if (memoryPack)
         {
-            references.Add(MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.MemoryPack.MemoryPackSerializer<int>).Assembly.Location));
+            references.Add(MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.MemoryPack.MemoryPackableSerializer<>).Assembly.Location));
             references.Add(MetadataReference.CreateFromFile(typeof(global::MemoryPack.MemoryPackSerializer).Assembly.Location));
         }
 
