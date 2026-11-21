@@ -18,7 +18,13 @@ The constructor registers the type's formatter through its generated static `Reg
 
 Before 3.0 this package also had `MemoryPackSerializer<T>`, whose parameterless constructor let MemoryPack find the formatter through reflection. It is removed; use `MemoryPackableSerializer<T>`, or the source generator below.
 
-`MemoryPackSerializer<T>` accepted any `T`, but `MemoryPackableSerializer<T>` and the source generator both require a `[MemoryPackable]` type. For a `T` that is not `[MemoryPackable]`, such as a collection like `List<Order>`, a primitive, an enum or an unmanaged struct, either wrap the value in a `[MemoryPackable]` type, or implement `ISerializer<T>` yourself over `global::MemoryPack.MemoryPackSerializer`. Where Native AOT matters, register the formatter first, for example `MemoryPackFormatterProvider.Register(new ListFormatter<Order>())`, so MemoryPack does not look it up by reflection.
+`MemoryPackSerializer<T>` accepted any `T`, but `MemoryPackableSerializer<T>` requires a `[MemoryPackable]` type. For a `T` that is not `[MemoryPackable]`, such as a collection like `List<Order>`, a primitive, an enum or an unmanaged struct, you have three options:
+
+- Use the source generator. It does not require `[MemoryPackable]`: for a type without it the generator reports the `ZASZ003` warning and still emits a serializer that calls MemoryPack directly, which works as long as MemoryPack has a formatter for the type. Put `[ZeroAllocSerializable]` on an enum or struct you own, or declare a closed generic type on the assembly, for example `[assembly: ZeroAllocSerializable(typeof(List<Order>), SerializationFormat.MemoryPack)]`.
+- Wrap the value in a `[MemoryPackable]` type.
+- Implement `ISerializer<T>` yourself over `global::MemoryPack.MemoryPackSerializer`.
+
+Where Native AOT matters, register the formatters first so MemoryPack does not look them up by reflection, for example `MemoryPackFormatterProvider.Register(new ListFormatter<Order>())`. Register one for every nested type that needs it, not only the outer one: for `List<List<int>>`, register both `new ListFormatter<List<int>>()` and `new ListFormatter<int>()`.
 
 ## Source Generator Usage
 
