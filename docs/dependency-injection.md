@@ -127,7 +127,7 @@ public static IServiceCollection AddOrdering(this IServiceCollection services)
 
 ## Manual Registration
 
-If you are using a backend class directly (for non-AOT or ad-hoc use) you can register it manually:
+If you use an adapter class directly instead of a generated serializer, register it manually. Both adapters are Native AOT safe with a `[MemoryPackable]` type or a source-generated MessagePack resolver:
 
 ```csharp
 // MemoryPack — for a [MemoryPackable] type; registers the formatter without reflection
