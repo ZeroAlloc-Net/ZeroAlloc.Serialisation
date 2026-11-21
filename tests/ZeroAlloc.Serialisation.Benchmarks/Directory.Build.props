@@ -4,7 +4,7 @@
     <!-- Override the repo-root multi-TFM default. Required so BenchmarkDotNet's
          auto-generated boilerplate csproj (placed under bin/Release/.../) inherits
          net10.0-only TargetFrameworks instead of trying to restore against
-         netstandard2.1/net8.0/net9.0. -->
+         net11.0 as well, which BenchmarkDotNet has no stable release for. -->
     <TargetFrameworks>net10.0</TargetFrameworks>
   </PropertyGroup>
 </Project>

@@ -11,10 +11,8 @@ the generator) plus one backend package.
   `ZeroAlloc.Serialisation.Generator` (also published standalone, `netstandard2.0` only), and the
   `MemoryPack`, `MessagePack` and `SystemTextJson` adapters. Everything under `tests/` and `samples/` is
   not packable.
-- The core project multi-targets `netstandard2.1;net8.0;net9.0;net10.0;net11.0`; the three adapters drop
-  `netstandard2.1` (their backends need .NET 5 or later). The `SystemTextJson*Fallback*` files are
-  `Compile Remove`d on `netstandard2.1`, so public API entries for them live in the separate
-  `PublicAPI.*.modern.txt` pair.
+- The core project and the three adapters target `net10.0;net11.0`, inherited from
+  `Directory.Build.props`.
 - The generator's emitted text is pinned by the `*EmissionSnapshotTests`. An intended emission change
   means updating the `Expected_*` constants in the same PR.
 - `tests/ZeroAlloc.Serialisation.Benchmarks` targets `net10.0` only (its own `Directory.Build.props`
@@ -74,7 +72,7 @@ dotnet test tests/ZeroAlloc.Serialisation.Tests -c Release -f net10.0 --no-build
 
 - `TreatWarningsAsErrors` and `EnforceCodeStyleInBuild` are on, and `RS0016` and `RS0017` always fail the
   build. A new or removed public symbol in `ZeroAlloc.Serialisation` needs its `PublicAPI.Unshipped.txt`
-  line, or `PublicAPI.Unshipped.modern.txt` for the files not compiled on `netstandard2.1`. Do not edit the
+  line. Do not edit the
   `*.Shipped*` files or `AnalyzerReleases.Shipped.md`: the `ship-release-tracking` job moves entries there
   on the release PR. A new generator diagnostic goes in `AnalyzerReleases.Unshipped.md`.
 - The generator targets `netstandard2.0` with `EnforceExtendedAnalyzerRules`, so no APIs newer than
@@ -89,7 +87,7 @@ dotnet test tests/ZeroAlloc.Serialisation.Tests -c Release -f net10.0 --no-build
   org rule against blanket suppression, not a leftover. Leave it unless those backends stop raising them.
 - Adding a package or a backend to the AOT smoke means referencing it in the sample with
   `SetTargetFramework=net11.0` and `UndefineProperties=PublishAot`, as the existing references do;
-  otherwise `NETSDK1207` fires on the `netstandard2.1` and `netstandard2.0` projects.
+  otherwise `NETSDK1207` fires on the `netstandard2.0` generator project.
 - Benchmarks here target `net10.0` only, a deviation from the org rule of all LTS frameworks, because
   BenchmarkDotNet's generated project must restore.
 

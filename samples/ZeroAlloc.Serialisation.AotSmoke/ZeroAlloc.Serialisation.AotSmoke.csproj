@@ -21,10 +21,10 @@
   </PropertyGroup>
   <ItemGroup>
     <!--
-      Pin the core-lib reference to net11.0 AND strip PublishAot from the inherited
-      properties so the ns2.1 TFM evaluation (which it still does for nuget-asset
-      selection) doesn't trip NETSDK1207. Same for the generator: force ns2.0 and
-      drop PublishAot. The generator is consumed purely as an analyzer at build
+      Pin the library references to net11.0, the sample's own framework, so only that
+      build of each library is made, and strip PublishAot from the inherited properties.
+      Same for the generator: force ns2.0 and drop PublishAot, which would trip
+      NETSDK1207 there. The generator is consumed purely as an analyzer at build
       time; its assembly is never part of the AOT-published output.
     -->
     <ProjectReference Include="..\..\src\ZeroAlloc.Serialisation\ZeroAlloc.Serialisation.csproj"
