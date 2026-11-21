@@ -37,7 +37,7 @@ public partial class MyEvent
 }
 ```
 
-The `[MemoryPackable]` attribute (from `MemoryPack`) is required alongside `[ZeroAllocSerializable]`. MemoryPack's own generator emits the formatter; ZeroAlloc's generator emits the `ISerializer<T>` wrapper.
+For a class you own, put `[MemoryPackable]` from `MemoryPack` alongside `[ZeroAllocSerializable]`: MemoryPack's own generator emits the formatter, and ZeroAlloc's generator emits the `ISerializer<T>` wrapper. Without `[MemoryPackable]` the generator reports the `ZASZ003` warning and still emits the wrapper, which works only when MemoryPack has a formatter for the type, such as a built-in one or one you register.
 
 ## Performance Notes
 
