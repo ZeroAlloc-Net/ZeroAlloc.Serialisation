@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.11.1...v3.0.0) (2026-11-21)
+
+
+### ⚠ BREAKING CHANGES
+
+* netstandard2.1, net8.0 and net9.0 assets are no longer shipped; MemoryPackSerializer<T> is removed in favour of MemoryPackableSerializer<T>; the parameterless and options-only MessagePackSerializer<T> constructors are removed, so it requires a resolver. See the Behaviour change section of the release notes for migration steps.
+
+### Features
+
+* remove the reflection-based constructors of the MemoryPack and MessagePack serializers, so neither adapter carries trim or AOT annotations ([0e66c30](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/0e66c307ed433a0d757330cf79fa393f46246cc3))
+* target net10.0 and net11.0, drop netstandard2.1, net8.0 and net9.0 ([0e66c30](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/0e66c307ed433a0d757330cf79fa393f46246cc3))
+
 ## [2.11.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.11.0...v2.11.1) (2026-11-16)
 
 
