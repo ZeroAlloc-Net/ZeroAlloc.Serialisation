@@ -122,7 +122,11 @@ public class AotSafeAdapterTests
     public void MessagePackSerializer_WithResolverAndOptions_KeepsTheOptionsAndUsesTheResolver()
     {
         var resolver = CompositeResolver.Create(AotTestResolver.Instance, BuiltinResolver.Instance);
-        var options = MessagePackSerializerOptions.Standard.WithCompression(MessagePackCompression.Lz4BlockArray);
+        // The options' own resolver has no formatter for the DTO, so a round trip shows the constructor's resolver
+        // replaced it.
+        var options = MessagePackSerializerOptions.Standard
+            .WithResolver(BuiltinResolver.Instance)
+            .WithCompression(MessagePackCompression.Lz4BlockArray);
         var serializer = new MessagePackSerializer<AotMessagePackDto>(resolver, options);
         var dto = new AotMessagePackDto { Id = 3, Name = new string('a', 512) };
         var buffer = new ArrayBufferWriter<byte>();
