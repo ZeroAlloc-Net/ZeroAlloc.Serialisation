@@ -6,29 +6,25 @@
 dotnet add package ZeroAlloc.Serialisation.MemoryPack
 ```
 
-## Base Class
+## Adapter
 
-`MemoryPackSerializer<T>` implements `ISerializer<T>` for any `T : IMemoryPackable<T>`:
+`MemoryPackableSerializer<T>` implements `ISerializer<T>` for any `T : IMemoryPackable<T>`, that is, a `[MemoryPackable]` type:
 
 ```csharp
-public class MemoryPackSerializer<T> : ISerializer<T>
-{
-    [RequiresDynamicCode("...")]
-    [RequiresUnreferencedCode("...")]
-    public virtual void Serialize(IBufferWriter<byte> writer, T value)
-        => global::MemoryPack.MemoryPackSerializer.Serialize(writer, value);
-
-    [RequiresDynamicCode("...")]
-    [RequiresUnreferencedCode("...")]
-    public virtual T? Deserialize(ReadOnlySpan<byte> buffer)
-    {
-        if (buffer.IsEmpty) return default;
-        return global::MemoryPack.MemoryPackSerializer.Deserialize<T>(buffer);
-    }
-}
+ISerializer<MyEvent> serializer = new MemoryPackableSerializer<MyEvent>();
 ```
 
-The base class is open-generic and carries `[RequiresDynamicCode]`. For AOT use, use the source generator instead.
+The constructor registers the type's formatter through its generated static `RegisterFormatter`, so MemoryPack never looks it up by reflection. The class carries no trim or AOT annotations and is safe under Native AOT.
+
+Before 3.0 this package also had `MemoryPackSerializer<T>`, whose parameterless constructor let MemoryPack find the formatter through reflection. It is removed; use `MemoryPackableSerializer<T>`, or the source generator below.
+
+`MemoryPackSerializer<T>` accepted any `T`, but `MemoryPackableSerializer<T>` requires a `[MemoryPackable]` type. For a `T` that is not `[MemoryPackable]`, such as a collection like `List<Order>`, a primitive, an enum or an unmanaged struct, you have three options:
+
+- Use the source generator. It does not require `[MemoryPackable]`: for a type without it the generator reports the `ZASZ003` warning and still emits a serializer that calls MemoryPack directly, which works as long as MemoryPack has a formatter for the type. Put `[ZeroAllocSerializable]` on an enum or struct you own, or declare a closed generic type on the assembly, for example `[assembly: ZeroAllocSerializable(typeof(List<Order>), SerializationFormat.MemoryPack)]`.
+- Wrap the value in a `[MemoryPackable]` type.
+- Implement `ISerializer<T>` yourself over `global::MemoryPack.MemoryPackSerializer`.
+
+Where Native AOT matters, register the formatters first so MemoryPack does not look them up by reflection, for example `MemoryPackFormatterProvider.Register(new ListFormatter<Order>())`. Register one for every nested type that needs it, not only the outer one: for `List<List<int>>`, register both `new ListFormatter<List<int>>()` and `new ListFormatter<int>()`.
 
 ## Source Generator Usage
 
@@ -41,7 +37,7 @@ public partial class MyEvent
 }
 ```
 
-The `[MemoryPackable]` attribute (from `MemoryPack`) is required alongside `[ZeroAllocSerializable]`. MemoryPack's own generator emits the formatter; ZeroAlloc's generator emits the `ISerializer<T>` wrapper.
+For a class you own, put `[MemoryPackable]` from `MemoryPack` alongside `[ZeroAllocSerializable]`: MemoryPack's own generator emits the formatter, and ZeroAlloc's generator emits the `ISerializer<T>` wrapper. Without `[MemoryPackable]` the generator reports the `ZASZ003` warning and still emits the wrapper, which works only when MemoryPack has a formatter for the type, such as a built-in one or one you register.
 
 ## Performance Notes
 

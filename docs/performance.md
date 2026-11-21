@@ -77,7 +77,7 @@ The dispatcher's `Serialize(object, Type)` returns memory the caller owns, so th
 - **Multi-format support** — your app needs to serialize the same DTO to MemoryPack for service-to-service and STJ for public APIs, with a single interface seam to swap on.
 - **Pooled IBufferWriter** — you already use `ArrayPool<byte>` + `IBufferWriter<byte>` in your pipeline. The wrapper integrates cleanly.
 - **DI registration** — your handlers depend on `ISerializer<T>` and switch between implementations via configuration.
-- **AOT compatibility** — every wrapper is `[RequiresDynamicCode]`-suppressed because the underlying library's source generator emits the formatter at compile time.
+- **AOT compatibility** — no adapter carries `[RequiresDynamicCode]` or `[RequiresUnreferencedCode]`: the generated serializers suppress them because the underlying library's source generator emits the formatter at compile time, `MemoryPackableSerializer<T>` registers the formatter itself, and `MessagePackSerializer<T>` serializes through the resolver you pass.
 
 ## When to call the raw library directly
 

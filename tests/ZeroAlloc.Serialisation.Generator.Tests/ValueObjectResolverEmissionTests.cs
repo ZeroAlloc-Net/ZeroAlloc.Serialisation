@@ -148,7 +148,7 @@ public class ValueObjectResolverEmissionTests
         if (withMessagePack)
             references.Add(MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.MessagePack.MessagePackSerializer<int>).Assembly.Location));
         if (withMemoryPack)
-            references.Add(MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.MemoryPack.MemoryPackSerializer<int>).Assembly.Location));
+            references.Add(MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.MemoryPack.MemoryPackableSerializer<>).Assembly.Location));
 
         var compilation = CSharpCompilation.Create(
             "TestAssembly",

@@ -76,7 +76,7 @@ public class SerializerEdgeCaseTests
     [Fact]
     public void MemoryPack_RichShape_RoundTrip()
     {
-        var serializer = new MemoryPackSerializer<MpOrder>();
+        var serializer = new MemoryPackableSerializer<MpOrder>();
         var original = new MpOrder
         {
             Id = "ord-2",
@@ -97,7 +97,7 @@ public class SerializerEdgeCaseTests
     [Fact]
     public void MessagePack_RichShape_RoundTrip()
     {
-        var serializer = new MessagePackSerializer<MsgpOrder>();
+        var serializer = new MessagePackSerializer<MsgpOrder>(TestResolvers.Aot);
         var original = new MsgpOrder
         {
             Id = "ord-3",
@@ -132,7 +132,7 @@ public class SerializerEdgeCaseTests
     [Fact]
     public void MemoryPack_NullValue_RoundTripsAsNull()
     {
-        var serializer = new MemoryPackSerializer<MpOrder>();
+        var serializer = new MemoryPackableSerializer<MpOrder>();
         var buffer = new ArrayBufferWriter<byte>();
 
         serializer.Serialize(buffer, null!);
@@ -144,7 +144,7 @@ public class SerializerEdgeCaseTests
     [Fact]
     public void MessagePack_NullValue_RoundTripsAsNull()
     {
-        var serializer = new MessagePackSerializer<MsgpOrder>();
+        var serializer = new MessagePackSerializer<MsgpOrder>(TestResolvers.Aot);
         var buffer = new ArrayBufferWriter<byte>();
 
         serializer.Serialize(buffer, null!);
@@ -194,7 +194,7 @@ public class SerializerEdgeCaseTests
     [Fact]
     public void MemoryPack_LargePayload_RoundTrip()
     {
-        var serializer = new MemoryPackSerializer<MpOrder>();
+        var serializer = new MemoryPackableSerializer<MpOrder>();
         var tags = new string[5_000];
         for (var i = 0; i < tags.Length; i++) tags[i] = $"tag-{i}";
         var original = new MpOrder { Id = "big", Total = 0m, Tags = tags };
@@ -212,7 +212,7 @@ public class SerializerEdgeCaseTests
     [Fact]
     public void MessagePack_LargePayload_RoundTrip()
     {
-        var serializer = new MessagePackSerializer<MsgpOrder>();
+        var serializer = new MessagePackSerializer<MsgpOrder>(TestResolvers.Aot);
         var tags = new string[5_000];
         for (var i = 0; i < tags.Length; i++) tags[i] = $"tag-{i}";
         var original = new MsgpOrder { Id = "big", Total = 0m, Tags = tags };
@@ -247,7 +247,7 @@ public class SerializerEdgeCaseTests
     [Fact]
     public async Task MemoryPack_ConcurrentRoundTrips_Succeed()
     {
-        var serializer = new MemoryPackSerializer<MpOrder>();
+        var serializer = new MemoryPackableSerializer<MpOrder>();
         await RunConcurrentRoundTrips(i =>
         {
             var original = new MpOrder { Id = $"ord-{i}", Total = i };
@@ -262,7 +262,7 @@ public class SerializerEdgeCaseTests
     [Fact]
     public async Task MessagePack_ConcurrentRoundTrips_Succeed()
     {
-        var serializer = new MessagePackSerializer<MsgpOrder>();
+        var serializer = new MessagePackSerializer<MsgpOrder>(TestResolvers.Aot);
         await RunConcurrentRoundTrips(i =>
         {
             var original = new MsgpOrder { Id = $"ord-{i}", Total = i };

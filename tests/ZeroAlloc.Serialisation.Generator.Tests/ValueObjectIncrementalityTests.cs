@@ -150,7 +150,7 @@ public sealed class ValueObjectIncrementalityTests
     [
         MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.SystemTextJson.SystemTextJsonSerializer<int>).Assembly.Location),
         MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.MessagePack.MessagePackSerializer<int>).Assembly.Location),
-        MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.MemoryPack.MemoryPackSerializer<int>).Assembly.Location),
+        MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.MemoryPack.MemoryPackableSerializer<>).Assembly.Location),
     ];
 
     private static CSharpCompilation CreateCompilation(SyntaxTree[] trees, MetadataReference[] backends) =>

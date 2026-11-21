@@ -177,7 +177,7 @@ public sealed class SameNamedTypesTests
             MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.MessagePack.MessagePackSerializer<int>).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(global::MessagePack.MessagePackSerializer).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(global::MessagePack.KeyAttribute).Assembly.Location),
-            MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.MemoryPack.MemoryPackSerializer<int>).Assembly.Location),
+            MetadataReference.CreateFromFile(typeof(ZeroAlloc.Serialisation.MemoryPack.MemoryPackableSerializer<>).Assembly.Location),
             MetadataReference.CreateFromFile(typeof(global::MemoryPack.MemoryPackSerializer).Assembly.Location),
             MetadataReference.CreateFromFile(
                 typeof(global::Microsoft.Extensions.DependencyInjection.IServiceCollection).Assembly.Location),

@@ -3,6 +3,7 @@ using System.Text.Json;
 using BenchmarkDotNet.Attributes;
 using MemoryPack;
 using MessagePack;
+using MessagePack.Resolvers;
 using ZeroAlloc.Serialisation;
 using ZeroAlloc.Serialisation.MemoryPack;
 using ZeroAlloc.Serialisation.MessagePack;
@@ -31,8 +32,8 @@ public class RawVsWrappedBenchmark
     private static readonly BenchDto s_dto = new() { Id = 42, Name = "Alice" };
 
     // ZA wrappers
-    private readonly ISerializer<BenchDto> _zaMp = new MemoryPackSerializer<BenchDto>();
-    private readonly ISerializer<BenchDto> _zaMsg = new MessagePackSerializer<BenchDto>();
+    private readonly ISerializer<BenchDto> _zaMp = new MemoryPackableSerializer<BenchDto>();
+    private readonly ISerializer<BenchDto> _zaMsg = new MessagePackSerializer<BenchDto>(StandardResolver.Instance, MessagePackSerializerOptions.Standard);
     private readonly ISerializer<BenchDto> _zaStj = new SystemTextJsonSerializer<BenchDto>(BenchContext.Default.BenchDto);
 
     // Pre-serialized payloads (same shape for ZA + raw, since the wrappers

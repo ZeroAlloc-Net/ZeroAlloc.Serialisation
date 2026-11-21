@@ -12,6 +12,15 @@ ZeroAlloc.Serialisation.SerializationFormat
 ZeroAlloc.Serialisation.SerializationFormat.MemoryPack = 0 -> ZeroAlloc.Serialisation.SerializationFormat
 ZeroAlloc.Serialisation.SerializationFormat.MessagePack = 1 -> ZeroAlloc.Serialisation.SerializationFormat
 ZeroAlloc.Serialisation.SerializationFormat.SystemTextJson = 2 -> ZeroAlloc.Serialisation.SerializationFormat
+ZeroAlloc.Serialisation.SerializerDispatcherFallbackExtensions
+static ZeroAlloc.Serialisation.SerializerDispatcherFallbackExtensions.WithSystemTextJsonFallback(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Text.Json.JsonSerializerOptions? options = null) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher
+ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher.Deserialize(System.ReadOnlyMemory<byte> data, System.Type! type) -> object?
+ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher.Deserialize<T>(System.ReadOnlyMemory<byte> data) -> T?
+ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher.Serialize(object! value, System.Type! type) -> System.ReadOnlyMemory<byte>
+ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher.Serialize(System.Buffers.IBufferWriter<byte>! writer, object! value, System.Type! type) -> void
+ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher.Serialize<T>(System.Buffers.IBufferWriter<byte>! writer, T value) -> void
+ZeroAlloc.Serialisation.SystemTextJsonFallbackDispatcher.SystemTextJsonFallbackDispatcher(ZeroAlloc.Serialisation.ISerializerDispatcher! inner, System.Text.Json.JsonSerializerOptions? options = null) -> void
 ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute
 ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute.Format.get -> ZeroAlloc.Serialisation.SerializationFormat
 ZeroAlloc.Serialisation.ZeroAllocSerializableAttribute.Type.get -> System.Type?
