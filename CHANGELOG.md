@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.0.1](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v3.0.0...v3.0.1) (2026-11-22)
+
+
+### Bug Fixes
+
+* build the generator against Roslyn 5.0 so every .NET 10 SDK loads it ([#300](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/issues/300)) ([e90fc2f](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/commit/e90fc2f1b2b07fe8ccb37d487f4427a79e957633))
+
 ## [3.0.0](https://github.com/ZeroAlloc-Net/ZeroAlloc.Serialisation/compare/v2.11.1...v3.0.0) (2026-11-21)
 
 
