@@ -155,7 +155,7 @@ jobs:
 
       - name: Pack
         run: |
-          version="9.9.9-local.${GITHUB_SHA::7}"
+          version="9.9.9-local.sha${GITHUB_SHA::7}"
           echo "SERIALISATION_VERSION=$version" >> "$GITHUB_ENV"
           dotnet pack src/ZeroAlloc.Serialisation/ZeroAlloc.Serialisation.csproj -c Release -o artifacts -p:Version="$version"
           dotnet pack src/ZeroAlloc.Serialisation.SystemTextJson/ZeroAlloc.Serialisation.SystemTextJson.csproj -c Release -o artifacts -p:Version="$version"
