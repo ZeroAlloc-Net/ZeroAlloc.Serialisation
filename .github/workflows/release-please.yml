@@ -2,7 +2,10 @@ name: Release Please
 
 on:
   push:
-    branches: [main]
+    # release/N.x holds maintenance patches of an earlier major. Each such branch has its own
+    # manifest, and target-branch below makes release-please open its release PR there.
+    branches: [main, 'release/**']
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -12,7 +15,7 @@ permissions:
 # ship-release-tracking concurrently against the same release PR branch. Queued, not
 # cancelled: a cancelled run could drop a release or its publish.
 concurrency:
-  group: release-please
+  group: release-please-${{ github.ref_name }}
   cancel-in-progress: false
 
 jobs:
@@ -27,13 +30,62 @@ jobs:
       prs_created: ${{ steps.release.outputs.prs_created }}
       pr: ${{ steps.release.outputs.pr }}
     steps:
+      # Pushes and PRs made with GITHUB_TOKEN trigger no workflows, so bot PRs
+      # never got their required checks. A token from the release bot GitHub App
+      # acts as the App, and its pushes trigger CI like anyone else's.
+      - name: Mint a release bot token
+        id: app-token
+        uses: actions/create-github-app-token@v3
+        with:
+          client-id: ${{ vars.RELEASE_BOT_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+          permission-issues: write
+
       - name: Release Please
         uses: googleapis/release-please-action@v5
         id: release
         with:
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          target-branch: ${{ github.ref_name }}
+          token: ${{ steps.app-token.outputs.token }}
+
+  # GitHub marks every new release Latest, because release-please sets no make_latest. A release
+  # from release/N.x patches an older major, so it took the flag from the newest main-line release.
+  # This job gives the flag back to the highest released version. It is a job of its own so that a
+  # failure here never holds up publish, and it reads the releases instead of this run's outputs,
+  # so a re-run repairs the flag whatever failed before. It runs even when release-please failed
+  # after creating the release.
+  keep-latest:
+    needs: release-please
+    if: ${{ !cancelled() && github.ref_name != 'main' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Give Latest back to the highest released version
+        run: |
+          set -euo pipefail
+          # Checked again after each edit: a main-line release published in the meantime is
+          # higher, so the next round gives the flag to it. Three edits, four checks.
+          for round in 1 2 3 4; do
+            want=$(gh release list --exclude-drafts --exclude-pre-releases --limit 500 --json tagName -q '.[].tagName' \
+              | sed -nE '/^v[0-9]+\.[0-9]+\.[0-9]+$/p' | sort -V | tail -1)
+            [ -n "$want" ] || { echo "No stable release yet"; exit 0; }
+            now=$(gh release view --json tagName -q .tagName 2>/dev/null || echo none)
+            if [ "$want" = "$now" ]; then echo "Latest is $now"; exit 0; fi
+            [ "$round" -lt 4 ] || break
+            echo "Latest is $now; giving the flag to $want"
+            # A failed edit, such as a transient API error, is retried by the next round.
+            gh release edit "$want" --latest || echo "::warning::Could not give Latest to $want; retrying"
+            sleep 10
+          done
+          echo "::error::Latest did not settle on the highest release"; exit 1
 
   # Marks the analyzer rules and public API that the pending release adds as shipped,
   # by committing the move onto the release PR branch. Merging that PR then lands the
@@ -51,55 +103,74 @@ jobs:
     with:
       branch: ${{ fromJSON(needs.release-please.outputs.pr).headBranchName }}
     secrets:
-      # Same token as release-please, so this push triggers the PR's checks exactly
-      # as release-please's own push does. Empty falls back to GITHUB_TOKEN.
-      RELEASE_TOKEN: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+      # The shared workflow mints a release bot App token from this key, so
+      # its push triggers the release PR's checks like release-please's own.
+      RELEASE_BOT_PRIVATE_KEY: ${{ secrets.RELEASE_BOT_PRIVATE_KEY }}
 
+  # Builds the release tag, packs every packable project, checks the versions inside the
+  # packages, pushes them, and waits until nuget.org serves every one of them. Shared from
+  # ZeroAlloc-Net/.github so a fix there reaches every repository; see ZeroAlloc-Net/.github#49.
   publish:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created }}
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
+    if: needs.release-please.outputs.release_created == 'true'
+    uses: ZeroAlloc-Net/.github/.github/workflows/publish.yml@main
+    with:
+      tag: ${{ needs.release-please.outputs.tag_name }}
+      version: ${{ needs.release-please.outputs.version }}
+      solution: ZeroAlloc.Serialisation.slnx
+      github-packages: false
+      release-assets: true
+      # nuget.org checks a trusted publisher against the workflow that runs the job, so the push is the
+      # push job below, not this reusable workflow.
+      push: false
 
-      - uses: actions/setup-dotnet@v6
+  push:
+    needs: [release-please, publish]
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      # Runs as steps of this job, so nuget.org sees this workflow file in the OIDC claim, which is
+      # what the trusted publisher policy names. The policy is created by the account in NUGET_USER.
+      - uses: ZeroAlloc-Net/.github/.github/actions/nuget-push@main
         with:
-          # Installs the SDK global.json pins. Without it the job never installs
-          # that SDK at all and only works when the runner image happens to ship one
-          # satisfying the pin, which is how a publish failed on a lagging image.
+          tag: ${{ needs.release-please.outputs.tag_name }}
+          version: ${{ needs.release-please.outputs.version }}
+          nuget-user: ${{ vars.NUGET_USER }}
+          nuget-api-key: ${{ secrets.NUGET_API_KEY }}
+          github-packages: false
+          release-assets: true
+
+  # A CycloneDX SBOM of the solution, attached to the release release-please just created. Shared from ci-baseline.
+  # It builds the release tag, like publish, so the SBOM describes the released code. It does not wait for publish:
+  # the release exists once release-please has run, and a failed push to nuget.org should not leave the release
+  # without its SBOM.
+  sbom:
+    needs: release-please
+    if: needs.release-please.outputs.release_created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout the release tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release-please.outputs.tag_name }}
+          persist-credentials: false
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
           global-json-file: global.json
           dotnet-version: 10.0.x
 
-      - name: Build
-        run: dotnet build -c Release -p:Version=${{ needs.release-please.outputs.version }}
+      - name: Build the release
+        run: dotnet build ZeroAlloc.Serialisation.slnx -c Release -p:Version=${{ needs.release-please.outputs.version }}
 
-      - name: Test
-        run: dotnet test -c Release --no-build
-
-      - name: Pack
-        run: |
-          # Discovered, not listed. A hardcoded list silently omits any newly
-          # added package: the release still goes green and the package simply
-          # never appears on NuGet. Defaulting to pack means a new src project
-          # ships unless it opts out, so the failure mode is a surplus package
-          # someone notices rather than a missing one nobody does.
-          for csproj in src/*/*.csproj; do
-            if grep -q "<IsPackable>false</IsPackable>" "$csproj"; then
-              echo "Skipping $csproj (IsPackable=false)"
-              continue
-            fi
-            echo "Packing $csproj"
-            dotnet pack "$csproj" -c Release --no-build -p:PackageVersion=${{ needs.release-please.outputs.version }} -o ./nupkg
-          done
-          if ! ls ./nupkg/*.nupkg >/dev/null 2>&1; then
-            echo "::error::no packages were produced"
-            exit 1
-          fi
-
-      - name: Push to NuGet
-        run: dotnet nuget push ./nupkg/*.nupkg --api-key ${{ secrets.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
-
-      - name: Upload to GitHub Release
-        run: gh release upload ${{ needs.release-please.outputs.tag_name }} ./nupkg/*.nupkg
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Attach the SBOM to the GitHub release
+        uses: MarcelRoozekrans/ci-baseline/actions/sbom@v1
+        with:
+          solution: ZeroAlloc.Serialisation.slnx
+          tag: ${{ needs.release-please.outputs.tag_name }}

@@ -22,6 +22,8 @@ That is all you need. Since 2.0, `ZeroAlloc.Serialisation` ships the source gene
 
 > **Do not also reference `ZeroAlloc.Serialisation.Generator`.** That package ships the same generator, so referencing both loads it twice and every emitted type is declared twice — `CS0101` on the serializers, `CS0111` on the dispatcher members. It remains published only for consumers who referenced it directly under 1.x. Upgrading from 1.x? See [Migrating 1.x → 2.x](migration-1x-to-2x).
 
+The generator needs the .NET 10 SDK 10.0.100 or later, or Visual Studio 2026 or later. It is built against Roslyn 5.0, and an older compiler skips it with warning CS9057, after which the generated serializers are missing. Version 2.11.1 was built against Roslyn 5.9 and loads only in SDK 10.0.4xx or later; on an older .NET 10 SDK, use 2.11.2 or later.
+
 ## Quick Start
 
 ### 1. Annotate your type
