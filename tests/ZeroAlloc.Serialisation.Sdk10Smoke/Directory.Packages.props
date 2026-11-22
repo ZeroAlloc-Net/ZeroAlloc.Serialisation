@@ -1,0 +1,7 @@
+<Project>
+  <!-- Stops the central package management of the repository: the consumer pins the packed
+       package versions itself, the way a real consumer does. -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+</Project>
