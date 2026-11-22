@@ -135,6 +135,41 @@ jobs:
         # timeout exits 124 on a hang, so the step fails fast with a clear signal.
         run: timeout --kill-after=10s 120s ./aot-out/ZeroAlloc.Serialisation.AotSmoke
 
+  # The generator runs in the consumer's compiler. A generator built against a newer Roslyn
+  # than that compiler is skipped with CS9057, and the generated serializers go missing. This
+  # builds a net10.0 consumer of the packed packages with the oldest supported SDK band,
+  # 10.0.1xx, whose compiler is Roslyn 5.0. See ZeroAlloc-Net/.github#77.
+  sdk10-consumer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          # global.json's SDK packs the repository; the smoke folder's own global.json pins
+          # 10.0.100 with rollForward latestPatch, so a newer band cannot stand in for 10.0.1xx.
+          global-json-file: global.json
+          dotnet-version: 10.0.1xx
+
+      - name: Pack
+        run: |
+          version="9.9.9-local.sha${GITHUB_SHA::7}"
+          echo "SERIALISATION_VERSION=$version" >> "$GITHUB_ENV"
+          dotnet pack src/ZeroAlloc.Serialisation/ZeroAlloc.Serialisation.csproj -c Release -o artifacts -p:Version="$version"
+          dotnet pack src/ZeroAlloc.Serialisation.SystemTextJson/ZeroAlloc.Serialisation.SystemTextJson.csproj -c Release -o artifacts -p:Version="$version"
+
+      - name: Build and run the consumer
+        working-directory: tests/ZeroAlloc.Serialisation.Sdk10Smoke/Consumer
+        run: |
+          dotnet --version
+          dotnet run -c Release -p:ZeroAllocSerialisationVersion="$SERIALISATION_VERSION"
+
+  # Fails when a packed DLL references Roslyn above 5.0.0, the compiler of SDK 10.0.1xx.
+  roslyn-floor:
+    uses: ZeroAlloc-Net/.github/.github/workflows/roslyn-floor.yml@main
+
   # A release PR must mark everything it releases as shipped: the analyzer rules in
   # AnalyzerReleases.Unshipped.md and the API in every PublicAPI.Unshipped.txt. The
   # ship-release-tracking job in release-please.yml commits that move onto the branch;
