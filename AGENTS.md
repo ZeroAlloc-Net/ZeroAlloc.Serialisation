@@ -59,6 +59,19 @@ dotnet build tests/ZeroAlloc.Serialisation.Benchmarks -c Release
 dotnet run --project tests/ZeroAlloc.Serialisation.Benchmarks -c Release --no-build -- --filter "${FILTER:-*}"
 ```
 
+CI job `sdk10-consumer` needs a 10.0.1xx SDK; `tests/ZeroAlloc.Serialisation.Sdk10Smoke/global.json` pins
+10.0.100 with `rollForward: latestPatch`, so a newer band cannot stand in for it. It builds and runs a
+consumer of the packed packages with Roslyn 5.0:
+
+```bash
+dotnet pack ZeroAlloc.Serialisation.slnx -c Release -o artifacts -p:Version=9.9.9-local.<sha>
+cd tests/ZeroAlloc.Serialisation.Sdk10Smoke/Consumer
+dotnet run -c Release -p:ZeroAllocSerialisationVersion=9.9.9-local.<sha>
+```
+
+CI job `roslyn-floor` calls the shared `roslyn-floor.yml` from ZeroAlloc-Net/.github: it packs the
+solution and fails when a packed DLL references Roslyn above 5.0.0.
+
 Fast inner loop, verified locally with the .NET 11 SDK and the .NET 10 runtime, no CI job runs these:
 
 ```bash
@@ -88,6 +101,13 @@ dotnet test tests/ZeroAlloc.Serialisation.Tests -c Release -f net10.0 --no-build
 - Adding a package or a backend to the AOT smoke means referencing it in the sample with
   `SetTargetFramework=net11.0` and `UndefineProperties=PublishAot`, as the existing references do;
   otherwise `NETSDK1207` fires on the `netstandard2.0` generator project.
+- The generator references `Microsoft.CodeAnalysis.CSharp` 5.0.0, set in `Directory.Packages.props`: the
+  compiler of SDK band 10.0.1xx, the oldest supported SDK. A compiler older than the Roslyn the generator
+  references skips it with `CS9057`, and nothing is generated. The shared Renovate preset holds it below
+  5.1. If a newer Roslyn API is needed, change the code; raise the floor only together with the minimum
+  SDK. The generator test project shares the 5.0.0 version.
+- The Sdk10Smoke consumer cannot also reference `ZeroAlloc.Serialisation.Generator`: it ships the same
+  DLL as `ZeroAlloc.Serialisation`, so the generator would run twice. `roslyn-floor` scans both packages.
 - Benchmarks here target `net10.0` only, a deviation from the org rule of all LTS frameworks, because
   BenchmarkDotNet's generated project must restore.
 
