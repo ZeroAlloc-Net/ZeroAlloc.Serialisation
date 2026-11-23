@@ -9,6 +9,10 @@ name: Publish from manifest
 # Usage:
 #   gh workflow run publish-from-manifest.yml --repo ZeroAlloc-Net/ZeroAlloc.Serialisation
 #   gh workflow run publish-from-manifest.yml --repo ZeroAlloc-Net/ZeroAlloc.Serialisation -f dry-run=true
+#
+# A maintenance line is rescued from its own branch, which must contain this workflow: without
+# --ref the run reads the default branch's manifest and publishes that release instead.
+#   gh workflow run publish-from-manifest.yml --repo ZeroAlloc-Net/ZeroAlloc.Serialisation --ref release/2.4.x
 
 on:
   workflow_dispatch:
